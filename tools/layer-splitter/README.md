@@ -28,13 +28,13 @@ pip install -r requirements.txt
 python split_layers.py path/to/your/images --out layers
 ```
 
-The first run downloads the two AI models (about 300 MB).
+The first run downloads the AI models (about 1.4 GB). Expect about a minute per panel without a graphics card.
 
 ## How it works
 
 - **Panels** are found by looking for the black or white gaps between them.
 - **Speech bubbles** are white shapes with lettering inside.
-- **Characters** are cut out with BiRefNet (via `rembg`).
+- **Characters** are cut out by two BiRefNet models (full and lite, via `rembg`) and their results are combined: each one misses different bits, so together they miss less. Use `--models birefnet-general-lite` for a quicker, rougher run.
 - **Backgrounds** are filled in with LaMa where the characters and bubbles were.
 
 Sound effects drawn over the art (like "SLASH") usually stay with the characters layer.

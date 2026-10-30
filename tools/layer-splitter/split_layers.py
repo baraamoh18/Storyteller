@@ -100,14 +100,19 @@ def find_panels(rgb, bubble_mask):
 # ---------------------------------------------------------------- models
 
 class Models:
-    def __init__(self, cutout_model):
+    def __init__(self, cutout_models):
+        import onnxruntime
         import torch
         from rembg import new_session
         from simple_lama_inpainting.models.model import LAMA_MODEL_URL
         from simple_lama_inpainting.utils import download_model
 
-        print(f"Loading cutout model '{cutout_model}' and background fill model ...")
-        self.cutout = new_session(cutout_model)
+        print(f"Loading cutout model(s) {', '.join(cutout_models)} and background fill model ...")
+        # lower-memory settings so the bigger models also fit on an ordinary computer
+        options = onnxruntime.SessionOptions()
+        options.enable_cpu_mem_arena = False
+        options.enable_mem_pattern = False
+        self.cutouts = [new_session(name, sess_opts=options) for name in cutout_models]
         # Loaded by hand instead of SimpleLama() so it also works without a GPU.
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lama = torch.jit.load(download_model(LAMA_MODEL_URL), map_location=self.device).eval()
@@ -116,8 +121,11 @@ class Models:
     def character_alpha(self, rgb):
         from rembg import remove
 
-        mask = remove(Image.fromarray(rgb), session=self.cutout, only_mask=True)
-        return np.array(mask.convert("L"))
+        # each model misses different bits (a hand here, a sword there),
+        # so keep anything that any of them sees as part of a character
+        image = Image.fromarray(rgb)
+        masks = [np.array(remove(image, session=s, only_mask=True).convert("L")) for s in self.cutouts]
+        return np.maximum.reduce(masks)
 
     def fill_background(self, rgb, hole_mask):
         if not hole_mask.any():
@@ -219,8 +227,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("inputs", nargs="+", help="image files or folders of images")
     parser.add_argument("--out", default="layers", help="where to put the results (default: layers)")
-    parser.add_argument("--model", default="birefnet-general-lite",
-                        help="cutout model; 'birefnet-general' is sharper but needs a GPU or lots of memory")
+    parser.add_argument("--models", default="birefnet-general,birefnet-general-lite",
+                        help="comma-separated cutout models to combine (default: %(default)s); "
+                             "use just birefnet-general-lite for a quick, rougher run")
     args = parser.parse_args()
 
     files = []
@@ -232,7 +241,7 @@ def main():
     if not files:
         raise SystemExit("No images found.")
 
-    models = Models(args.model)
+    models = Models(args.models.split(","))
     out_root = Path(args.out)
     for path in files:
         print(f"{path.name}")
