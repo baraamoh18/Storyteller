@@ -25,6 +25,7 @@ Needs Python 3.10 or newer.
 ```bash
 cd tools/layer-splitter
 pip install -r requirements.txt
+pip install --no-deps simple-lama-inpainting==0.1.2
 python split_layers.py path/to/your/images --out layers
 ```
 
