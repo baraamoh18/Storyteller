@@ -29,6 +29,9 @@ pip install --no-deps simple-lama-inpainting==0.1.2
 python split_layers.py path/to/your/images --out layers
 ```
 
+If your images are slices of one long webtoon strip (panels cut in two between
+images), add `--join` to stack them back together, in file-name order, before splitting.
+
 The first run downloads the AI models (about 1.4 GB). Expect about a minute per panel without a graphics card.
 
 ## How it works

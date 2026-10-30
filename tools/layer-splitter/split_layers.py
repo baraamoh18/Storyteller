@@ -12,10 +12,14 @@ Usage:
 
 Everything lands in output_folder/<image name>/ together with a layers.json
 that says where each layer sits on the original strip.
+
+If your images are slices of one long webtoon strip (so a panel can be cut in
+two between images), add --join to stack them back together first.
 """
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import cv2
@@ -154,10 +158,22 @@ def save_rgba(path, rgb, alpha):
     Image.fromarray(np.dstack([rgb, alpha]).astype(np.uint8), "RGBA").save(path)
 
 
-def split_image(path, out_root, models):
-    rgb = np.array(Image.open(path).convert("RGB"))
+def natural_key(path):
+    # so 2.png comes before 10.png
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", path.name)]
+
+
+def join_slices(files):
+    images = [np.array(Image.open(p).convert("RGB")) for p in files]
+    widths = sorted({im.shape[1] for im in images})
+    if len(widths) > 1:
+        raise SystemExit(f"--join needs images that are all the same width, got widths {widths}.")
+    return np.vstack(images)
+
+
+def split_image(name, source, rgb, out_root, models):
     h, w = rgb.shape[:2]
-    out = out_root / path.stem
+    out = out_root / name
     out.mkdir(parents=True, exist_ok=True)
     grow = lambda m, px: cv2.dilate(m.astype(np.uint8), np.ones((px, px), np.uint8)) > 0
 
@@ -169,7 +185,7 @@ def split_image(path, out_root, models):
         all_bubbles |= b
     panels = find_panels(rgb, all_bubbles)
 
-    info = {"source": path.name, "width": w, "height": h, "panels": [], "bubbles": []}
+    info = {"source": source, "width": w, "height": h, "panels": [], "bubbles": []}
     preview = rgb.copy()
 
     for n, (x, y, pw, ph) in enumerate(panels, 1):
@@ -227,6 +243,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("inputs", nargs="+", help="image files or folders of images")
     parser.add_argument("--out", default="layers", help="where to put the results (default: layers)")
+    parser.add_argument("--join", action="store_true",
+                        help="stack all images into one long strip first (for webtoon slices "
+                             "where panels are cut in two between images)")
     parser.add_argument("--models", default="birefnet-general,birefnet-general-lite",
                         help="comma-separated cutout models to combine (default: %(default)s); "
                              "use just birefnet-general-lite for a quick, rougher run")
@@ -235,7 +254,7 @@ def main():
     files = []
     for item in map(Path, args.inputs):
         if item.is_dir():
-            files += sorted(p for p in item.iterdir() if p.suffix.lower() in IMAGE_TYPES)
+            files += sorted((p for p in item.iterdir() if p.suffix.lower() in IMAGE_TYPES), key=natural_key)
         else:
             files.append(item)
     if not files:
@@ -243,9 +262,14 @@ def main():
 
     models = Models(args.models.split(","))
     out_root = Path(args.out)
-    for path in files:
-        print(f"{path.name}")
-        split_image(path, out_root, models)
+    if args.join:
+        name = f"{files[0].stem}-{files[-1].stem}" if len(files) > 1 else files[0].stem
+        print(f"{name} (joined {len(files)} images)")
+        split_image(name, [p.name for p in files], join_slices(files), out_root, models)
+    else:
+        for path in files:
+            print(f"{path.name}")
+            split_image(path.stem, path.name, np.array(Image.open(path).convert("RGB")), out_root, models)
     print(f"Done. Layers are in {out_root.resolve()}")
 
 
