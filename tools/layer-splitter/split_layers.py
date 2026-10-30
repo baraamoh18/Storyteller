@@ -105,7 +105,7 @@ class Models:
         import torch
         from rembg import new_session
         from simple_lama_inpainting.models.model import LAMA_MODEL_URL
-        from simple_lama_inpainting.utils import download_model
+        from simple_lama_inpainting.utils.util import download_model
 
         print(f"Loading cutout model(s) {', '.join(cutout_models)} and background fill model ...")
         # lower-memory settings so the bigger models also fit on an ordinary computer
@@ -131,7 +131,7 @@ class Models:
         if not hole_mask.any():
             return rgb
         import torch
-        from simple_lama_inpainting.utils import prepare_img_and_mask
+        from simple_lama_inpainting.utils.util import prepare_img_and_mask
 
         h, w = rgb.shape[:2]
         # big panels are filled at a smaller size to save memory, then scaled back
