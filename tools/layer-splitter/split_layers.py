@@ -33,13 +33,13 @@ IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
 # ---------------------------------------------------------------- bubbles
 
 def find_bubbles(rgb):
-    """Return a list of filled masks (full image size), one per speech bubble.
+    """Return one (y, x, mask) per speech bubble: the filled mask of its box and where that box sits.
 
     A bubble is a near-white area with dark lettering inside it. Large white
     areas without lettering (glows, white skies) are skipped.
     """
-    hi = rgb.max(2).astype(int)
-    lo = rgb.min(2).astype(int)
+    hi = rgb.max(2)
+    lo = rgb.min(2)
     white = (lo > 225) & (hi - lo < 25)
     labels, _ = ndi.label(white)
     bubbles = []
@@ -53,9 +53,7 @@ def find_bubbles(rgb):
         lettering = (filled_area - area) / filled_area
         roundness = filled_area / part.size
         if 0.02 < lettering < 0.45 and roundness > 0.45:
-            mask = np.zeros(white.shape, bool)
-            mask[box] = filled
-            bubbles.append(mask)
+            bubbles.append((box[0].start, box[1].start, filled))
     return bubbles
 
 
@@ -81,8 +79,9 @@ def find_panels(rgb, bubble_mask):
     """
     border = np.concatenate([rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]]) // 16
     colours, counts = np.unique(border, axis=0, return_counts=True)
-    gutter_colour = colours[counts.argmax()].astype(int) * 16 + 8
-    distance = np.abs(rgb.astype(int) - gutter_colour).max(2)
+    gutter_colour = colours[counts.argmax()].astype(np.int16) * 16 + 8
+    # int16 rather than int, so a whole joined chapter fits in memory
+    distance = np.abs(rgb.astype(np.int16) - gutter_colour).max(2)
     ignore = cv2.dilate(bubble_mask.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
     content = (distance > 18) & ~ignore
 
@@ -177,12 +176,20 @@ def split_image(name, source, rgb, out_root, models):
     out.mkdir(parents=True, exist_ok=True)
     grow = lambda m, px: cv2.dilate(m.astype(np.uint8), np.ones((px, px), np.uint8)) > 0
 
-    bubbles = find_bubbles(rgb)
+    def grow_bubble(y, x, mask, px):
+        # grow within the bubble's box plus a margin, not a full-strip mask per bubble
+        pad = px // 2
+        y0, x0 = max(y - pad, 0), max(x - pad, 0)
+        y1, x1 = min(y + mask.shape[0] + pad, h), min(x + mask.shape[1] + pad, w)
+        box = np.zeros((y1 - y0, x1 - x0), bool)
+        box[y - y0:y - y0 + mask.shape[0], x - x0:x - x0 + mask.shape[1]] = mask
+        return y0, x0, grow(box, px)
+
     # grow each bubble a little so its black outline comes along with it
-    bubbles = [grow(b, 15) for b in bubbles]
+    bubbles = [grow_bubble(*b, 15) for b in find_bubbles(rgb)]
     all_bubbles = np.zeros((h, w), bool)
-    for b in bubbles:
-        all_bubbles |= b
+    for y, x, mask in bubbles:
+        all_bubbles[y:y + mask.shape[0], x:x + mask.shape[1]] |= mask
     panels = find_panels(rgb, all_bubbles)
 
     info = {"source": source, "width": w, "height": h, "panels": [], "bubbles": []}
@@ -221,18 +228,21 @@ def split_image(name, source, rgb, out_root, models):
         print(f"  {name}: {pw}x{ph} at ({x}, {y})")
 
     (out / "bubbles").mkdir(exist_ok=True)
-    for n, mask in enumerate(bubbles, 1):
+    for n, (by, bx, mask) in enumerate(bubbles, 1):
         ys, xs = np.nonzero(mask)
-        x0, x1, y0, y1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
+        mask = mask[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        y0, x0 = by + ys.min(), bx + xs.min()
+        y1, x1 = y0 + mask.shape[0], x0 + mask.shape[1]
         file = f"bubbles/bubble_{n:02d}.png"
-        save_rgba(out / file, rgb[y0:y1, x0:x1], mask[y0:y1, x0:x1] * 255)
+        save_rgba(out / file, rgb[y0:y1, x0:x1], mask * 255)
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         owner = next((p["id"] for p in info["panels"]
                       if p["x"] <= cx <= p["x"] + p["width"] and p["y"] <= cy <= p["y"] + p["height"]), None)
         info["bubbles"].append({"id": f"bubble_{n:02d}", "x": int(x0), "y": int(y0),
                                 "width": int(x1 - x0), "height": int(y1 - y0),
                                 "panel": owner, "file": file})
-        preview[mask] = (preview[mask] * 0.4 + np.array([255, 60, 60]) * 0.6).astype(np.uint8)
+        region = preview[y0:y1, x0:x1]
+        region[mask] = (region[mask] * 0.4 + np.array([255, 60, 60]) * 0.6).astype(np.uint8)
     print(f"  {len(bubbles)} speech bubble(s)")
 
     Image.fromarray(preview).save(out / "preview.png")
