@@ -109,11 +109,9 @@ def find_panels(rgb, bubble_mask):
 
 class Models:
     def __init__(self, cutout_models):
-        import inspect
-
         import onnxruntime
         import torch
-        from rembg import new_session
+        from rembg.sessions import sessions_class
         from simple_lama_inpainting.models.model import LAMA_MODEL_URL
         from simple_lama_inpainting.utils.util import download_model
 
@@ -122,10 +120,13 @@ class Models:
         options = onnxruntime.SessionOptions()
         options.enable_cpu_mem_arena = False
         options.enable_mem_pattern = False
-        if "sess_opts" in inspect.signature(new_session).parameters:
-            self.cutouts = [new_session(name, sess_opts=options) for name in cutout_models]
-        else:  # rembg before 2.0.78 makes its own settings and refuses ours
-            self.cutouts = [new_session(name) for name in cutout_models]
+        # made directly rather than with rembg's new_session(), which ignores these settings
+        # before rembg 2.0.78; without them the two models need about 14 GB and crash Colab
+        by_name = {c.name(): c for c in sessions_class}
+        unknown = [name for name in cutout_models if name not in by_name]
+        if unknown:
+            raise SystemExit(f"Unknown cutout model(s): {', '.join(unknown)}")
+        self.cutouts = [by_name[name](name, options) for name in cutout_models]
         # Loaded by hand instead of SimpleLama() so it also works without a GPU.
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lama = torch.jit.load(download_model(LAMA_MODEL_URL), map_location=self.device).eval()
