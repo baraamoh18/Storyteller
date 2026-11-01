@@ -36,7 +36,8 @@ def find_bubbles(rgb):
     """Return one (y, x, mask) per speech bubble: the filled mask of its box and where that box sits.
 
     A bubble is a near-white area with dark lettering inside it. Large white
-    areas without lettering (glows, white skies) are skipped.
+    areas without lettering (glows, white skies) are skipped, and so are white
+    slashes and highlights whose "holes" are coloured effects rather than black ink.
     """
     hi = rgb.max(2)
     lo = rgb.min(2)
@@ -52,7 +53,11 @@ def find_bubbles(rgb):
         filled_area = filled.sum()
         lettering = (filled_area - area) / filled_area
         roundness = filled_area / part.size
-        if 0.02 < lettering < 0.45 and roundness > 0.45:
+        if not (0.02 < lettering < 0.45 and roundness > 0.45):
+            continue
+        # lettering is black ink; real bubbles score about 0.65 here, slashes and glows about 0
+        ink = (hi[box][filled & ~part] < 100).mean()
+        if ink > 0.3:
             bubbles.append((box[0].start, box[1].start, filled))
     return bubbles
 
