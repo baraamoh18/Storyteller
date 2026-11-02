@@ -176,18 +176,22 @@ class Models:
         import onnxruntime
 
         session.disable_fallback()  # fail loudly here instead of silently moving to the processor
-        for search in ("HEURISTIC", "DEFAULT"):
-            try:
-                session.set_providers(["CUDAExecutionProvider", "CPUExecutionProvider"],
-                                      [{"cudnn_conv_algo_search": search, "arena_extend_strategy": "kSameAsRequested"}, {}])
-                warm_up()
-                if "CUDAExecutionProvider" in session.get_providers():
-                    break
-            except Exception:
-                pass
-        else:
-            session.set_providers(["CPUExecutionProvider"])
-            return False
+        onnxruntime.set_default_logger_severity(4)  # a failed try prints pages of cuDNN errors; expected here
+        try:
+            for search in ("HEURISTIC", "DEFAULT"):  # on a T4 only DEFAULT works; newer cards take HEURISTIC
+                try:
+                    session.set_providers(["CUDAExecutionProvider", "CPUExecutionProvider"],
+                                          [{"cudnn_conv_algo_search": search, "arena_extend_strategy": "kSameAsRequested"}, {}])
+                    warm_up()
+                    if "CUDAExecutionProvider" in session.get_providers():
+                        break
+                except Exception:
+                    pass
+            else:
+                session.set_providers(["CPUExecutionProvider"])
+                return False
+        finally:
+            onnxruntime.set_default_logger_severity(2)
 
         # By default each session keeps all the graphics memory it ever used, and the three of
         # them filled a 15 GB T4 before the background fill got any. Hand it back after every run.
@@ -207,8 +211,9 @@ class Models:
         masks = []
         for session in self.cutouts:
             # averaging with the mirrored panel drops glows and auras only one view mistakes for a character
-            plain = np.asarray(session.predict(image)[0], np.float32)
-            flipped = np.asarray(session.predict(mirrored)[0], np.float32)[:, ::-1]
+            with np.errstate(over="ignore"):  # rembg's sigmoid overflows to exactly 0 on sure background, which is right
+                plain = np.asarray(session.predict(image)[0], np.float32)
+                flipped = np.asarray(session.predict(mirrored)[0], np.float32)[:, ::-1]
             masks.append((plain + flipped) / 2)
         # each model misses different bits (a hand here, an outline there),
         # so keep anything that any of them sees as part of a character
