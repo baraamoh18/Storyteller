@@ -28,6 +28,9 @@ from PIL import Image
 from scipy import ndimage as ndi
 
 IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
+# Picked by comparing all of rembg's models on real webtoon panels: general is the most
+# reliable, hrsod adds missed edges only, while lite and massive grab chunks of background.
+CUTOUT_MODELS = ["birefnet-general", "birefnet-hrsod"]
 
 
 # ---------------------------------------------------------------- bubbles
@@ -108,7 +111,7 @@ def find_panels(rgb, bubble_mask):
 # ---------------------------------------------------------------- models
 
 class Models:
-    def __init__(self, cutout_models):
+    def __init__(self, cutout_models=None):
         # torch first: the GPU build of onnxruntime runs on the CUDA libraries torch loads
         import torch
         import onnxruntime
@@ -116,6 +119,11 @@ class Models:
         from simple_lama_inpainting.models.model import LAMA_MODEL_URL
         from simple_lama_inpainting.utils.util import download_model
 
+        gpu = torch.cuda.is_available() and "CUDAExecutionProvider" in onnxruntime.get_available_providers()
+        if cutout_models is None:
+            # the second model only adds edge pixels; on the processor it is not worth
+            # the time, and both together need more memory than Colab has (about 14 GB)
+            cutout_models = CUTOUT_MODELS if gpu else CUTOUT_MODELS[:1]
         print(f"Loading cutout model(s) {', '.join(cutout_models)} and background fill model ...")
         # lower-memory settings so the bigger models also fit on an ordinary computer
         options = onnxruntime.SessionOptions()
@@ -127,7 +135,6 @@ class Models:
         unknown = [name for name in cutout_models if name not in by_name]
         if unknown:
             raise SystemExit(f"Unknown cutout model(s): {', '.join(unknown)}")
-        gpu = torch.cuda.is_available() and "CUDAExecutionProvider" in onnxruntime.get_available_providers()
         providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if gpu else ["CPUExecutionProvider"]
         self.cutouts = [by_name[name](name, options, providers=providers) for name in cutout_models]
         # Loaded by hand instead of SimpleLama() so it also works without a GPU.
@@ -160,9 +167,11 @@ class Models:
         alpha = np.maximum.reduce(masks).astype(np.uint8)
         if self.refine_edges:
             # ViTMatte redraws the soft edge band: crisper hair, no see-through ghost patches
-            alpha = np.asarray(self.refine_edges(image, Image.fromarray(alpha)))
+            refined = np.asarray(self.refine_edges(image, Image.fromarray(alpha)))
             # its output tops out at 254; make the solid inside fully solid again
-            alpha = np.where(alpha >= 250, 255, alpha).astype(np.uint8)
+            refined = np.where(refined >= 250, 255, refined)
+            # it also thins fine lines the models were sure of (speed lines, outlines), so those keep their value
+            alpha = np.maximum(refined, np.where(alpha >= 200, alpha, 0)).astype(np.uint8)
         return alpha.copy()
 
     @staticmethod
@@ -301,10 +310,9 @@ def main():
     parser.add_argument("--join", action="store_true",
                         help="stack all images into one long strip first (for webtoon slices "
                              "where panels are cut in two between images)")
-    # Picked by comparing all of rembg's models on real webtoon panels: general is the most
-    # reliable, hrsod adds missed edges only, while lite and massive grab chunks of background.
-    parser.add_argument("--models", default="birefnet-general,birefnet-hrsod",
-                        help="comma-separated cutout models to combine (default: %(default)s); "
+    parser.add_argument("--models",
+                        help="comma-separated cutout models to combine (default: "
+                             f"{','.join(CUTOUT_MODELS)} with a graphics card, {CUTOUT_MODELS[0]} without); "
                              "use just birefnet-general-lite for a quick, rougher run")
     args = parser.parse_args()
 
@@ -317,7 +325,7 @@ def main():
     if not files:
         raise SystemExit("No images found.")
 
-    models = Models(args.models.split(","))
+    models = Models(args.models.split(",") if args.models else None)
     out_root = Path(args.out)
     if args.join:
         name = f"{files[0].stem}-{files[-1].stem}" if len(files) > 1 else files[0].stem
