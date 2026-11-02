@@ -108,11 +108,13 @@ body {
   opacity: 0;
 }
 .scene:first-child { visibility: visible; opacity: 1; }
-.zoom, .shake, .rig { position: relative; will-change: transform; }
-.zoom { width: var(--w); height: var(--h); }
-.shake, .rig { width: 100%; height: 100%; }
-/* the pan down a tall panel: --pan runs 0 to 1 with the scroll, --travel is how far that is on this screen */
-.rig { translate: 0 calc((0.5 - var(--pan, 0.5)) * var(--travel, 0px)); }
+.zoom, .shake, .pan, .rig { position: relative; will-change: transform; }
+/* centred by hand: a grid would pin a panel taller than the screen to the top instead */
+.zoom { position: absolute; left: 50%; top: 50%; width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); }
+.shake, .pan, .rig { width: 100%; height: 100%; }
+/* the pan down a tall panel: --pan runs 0 to 1 with the scroll, --travel is how far that is on this screen.
+   It has its own wrapper because GSAP resets `translate` on any element whose transform it animates. */
+.pan { translate: 0 calc((0.5 - var(--pan, 0.5)) * var(--travel, 0px)); }
 .frame {
   position: absolute;
   inset: 0;
@@ -204,7 +206,7 @@ body {
 /* ---------- reduced motion: the panels as a plain webtoon column ---------- */
 .static .viewport { position: static; height: auto; overflow: visible; display: grid; gap: 48px; padding-block: 48px; justify-items: center; }
 .static .scene { position: relative; inset: auto; visibility: visible; opacity: 1; }
-.static .zoom { width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
+.static .zoom { position: relative; left: auto; top: auto; margin: 0; width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
 .static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static .sound { display: none; }
 </style>
 </head>
@@ -213,12 +215,12 @@ body {
 <header class="card">
   <p class="eyebrow">Storyteller <b>/</b> scroll prototype</p>
   <h1 class="headline">The Duel</h1>
-  <p class="lede">Ten panels, each split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the scene; scroll back to rewind it. Turn the sound on for the music, the sword effects and the voices.</p>
+  <p class="lede">Sixty panels, each split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the scene; scroll back to rewind it. Turn the sound on for the music and the sword effects.</p>
   <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
   <p class="hint">Scroll</p>
 </header>
 
-<main id="story" aria-label="The duel, ten animated panels">
+<main id="story" aria-label="The duel, sixty animated panels">
   <div class="viewport">
     <div class="flash"></div>
     <div class="hud" aria-hidden="true">
@@ -230,9 +232,9 @@ body {
 </main>
 
 <footer class="card">
-  <p class="eyebrow">End of panels 1–10</p>
+  <p class="eyebrow">End of panels 1–60</p>
   <p class="headline">To be continued</p>
-  <p class="lede">The next panels come in once the rest of the chapter is split into layers.</p>
+  <p class="lede">The last five panels of the chapter come next.</p>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -247,9 +249,9 @@ body {
    origin   the point the camera scales around, in % of the panel
    bg/chars the background and character layers, moved separately for depth
    bubbles  file, position and size in the panel's own pixels, when it pops in (0-1),
-            and `voice`: the line in assets/audio/voice_<name>.mp3 that plays as it pops
+            (`pop: false` fades it in where it sits instead: for lettering on the art itself)
    shakes   moments (0-1) of a camera shake; flashes: moments of a flash, with its colour and strength
-   sfx      sound effects at moments (0-1): crack, whoosh, grip, flame, swish, clang
+   sfx      sound effects at moments (0-1): crack, whoosh, grip, flame, swish, clang, skid, tap, thud, glint
    fx       particles: `ambient` "dust", "embers" or "speed", in a `tint` ("paper", "mana", "ember"),
             `amount` (1 = normal), and impact `bursts` ("splinters", "sparks", "ring", "flare")
             at a moment (0-1), coming `from` a point (% of the panel)
@@ -265,7 +267,7 @@ const SCENES = [
     camera: { from: { scale: 1.1 }, to: { scale: 1 } },
     bg: { from: { scale: 1.1 }, to: { scale: 1 } },
     chars: { from: { scale: 0.94, y: 4 }, to: { scale: 1.06, y: -2 } },
-    bubbles: [{ src: "bubble_very_well", x: 152, y: -74, w: 362, h: 333, at: 0.16, voice: "very_well" }],
+    bubbles: [{ src: "bubble_very_well", x: 152, y: -74, w: 362, h: 333, at: 0.16 }],
     fx: { ambient: "dust", tint: "paper", amount: 0.7 } },
 
   { id: "panel_03", w: 756, h: 480, length: 150, enter: "zoom", exit: "fade",
@@ -290,7 +292,7 @@ const SCENES = [
 
   { id: "panel_06", w: 940, h: 1816, length: 280, fit: "pan", enter: "fade", exit: "fade",
     chars: { from: { y: 3 }, to: { y: -3 } },
-    bubbles: [{ src: "bubble_go_easy", x: 535, y: 499, w: 389, h: 323, at: 0.38, voice: "go_easy" }],
+    bubbles: [{ src: "bubble_go_easy", x: 535, y: 499, w: 389, h: 323, at: 0.38 }],
     sfx: [{ at: 0.08, sound: "flame" }],
     fx: { ambient: "embers", tint: "mana", amount: 1.2, bursts: [{ type: "flare", at: 0.08, from: [30, 60] }] } },
 
@@ -315,10 +317,293 @@ const SCENES = [
     chars: { from: { x: 4, scale: 1.06 }, to: { x: 0, scale: 1 } },
     sfx: [{ at: 0.8, sound: "whoosh" }],
     fx: { ambient: "embers", tint: "mana", amount: 0.7 } },
+
+  // ---- the first exchange: slash, skid, "Going easy, huh?"
+  { id: "panel_11", w: 940, h: 686, length: 170, enter: "zoom", exit: "fade",
+    camera: { from: { scale: 1.12 }, to: { scale: 1 } },
+    chars: { from: { x: -5, scale: 1.08 }, to: { x: 2, scale: 1 }, over: [0.05, 0.3] },
+    shakes: [0.22], sfx: [{ at: 0.2, sound: "swish" }, { at: 0.24, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.9, bursts: [{ type: "sparks", at: 0.24, from: [62, 38] }] } },
+
+  { id: "panel_12", w: 920, h: 541, length: 150, enter: "fade", exit: "fade",
+    camera: { from: { x: -5 }, to: { x: 4 } },
+    chars: { from: { x: -6 }, to: { x: 3 }, over: [0.05, 0.45] },
+    sfx: [{ at: 0.18, sound: "skid" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.7, bursts: [{ type: "ring", at: 0.22, from: [72, 92] }] } },
+
+  { id: "panel_13", w: 860, h: 1098, length: 230, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.3, x: 10, y: 11 }, to: { scale: 1.3, x: -9, y: -10 } },
+    bubbles: [{ src: "bubble_going_easy_huh", x: 367, y: 22, w: 274, h: 189, at: 0.12 }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.6 } },
+
+  { id: "panel_14", w: 790, h: 991, length: 170, enter: "fade", exit: "zoom", focus: [42, 50],
+    camera: { from: { scale: 1 }, to: { scale: 1.12 } },
+    chars: { from: { scale: 0.96 }, to: { scale: 1.04 } },
+    sfx: [{ at: 0.16, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.4, bursts: [{ type: "flare", at: 0.16, from: [45, 60] }] } },
+
+  { id: "panel_15", w: 889, h: 836, length: 150, enter: "zoom", exit: "fade",
+    chars: { from: { x: 8, scale: 1.14 }, to: { x: 0, scale: 1 }, over: [0.04, 0.3] },
+    sfx: [{ at: 0.12, sound: "swish" }],
+    fx: { ambient: "speed", tint: "mana", amount: 1 } },
+
+  // ---- the onslaught
+  { id: "panel_16", w: 940, h: 1483, length: 250, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { x: 3, scale: 0.97 }, to: { x: -2, scale: 1.03 } },
+    shakes: [0.42], sfx: [{ at: 0.38, sound: "swish" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1, bursts: [{ type: "sparks", at: 0.42, from: [55, 50] }] } },
+
+  { id: "panel_17", w: 940, h: 705, length: 160, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1 }, to: { scale: 1.1 } },
+    chars: { from: { x: 4 }, to: { x: -3 } },
+    shakes: [0.28], sfx: [{ at: 0.28, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.8, bursts: [{ type: "sparks", at: 0.28, from: [66, 42] }] } },
+
+  { id: "panel_18", w: 940, h: 2756, length: 320, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { rotation: -2 }, to: { rotation: 2 } },
+    sfx: [{ at: 0.18, sound: "whoosh" }, { at: 0.66, sound: "whoosh" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.1 } },
+
+  { id: "panel_19", w: 940, h: 730, length: 210, enter: "fade", exit: "fade", origin: [62, 55],
+    camera: { from: { scale: 1 }, to: { scale: 1.16 } },
+    bg: { from: { x: 3 }, to: { x: -3 } },
+    bubbles: [{ src: "bubble_not_using_spells", x: 102, y: -170, w: 485, h: 359, at: 0.12 }],
+    fx: { ambient: "speed", tint: "paper", amount: 0.6 } },
+
+  { id: "panel_20", w: 748, h: 364, length: 120, enter: "fade", exit: "fade",
+    camera: { from: { x: 5 }, to: { x: -4 } },
+    sfx: [{ at: 0.3, sound: "tap" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.6, bursts: [{ type: "ring", at: 0.3, from: [56, 88] }] } },
+
+  { id: "panel_21", w: 890, h: 358, length: 170, enter: "fade", exit: "fade",
+    chars: { from: { x: -6 }, to: { x: 4 }, over: [0.3, 0.6] },
+    bubbles: [{ src: "bubble_07", x: 503, y: -195, w: 393, h: 256, at: 0.08 }],
+    sfx: [{ at: 0.36, sound: "whoosh" }],
+    fx: { ambient: "speed", tint: "mana", amount: 0.9 } },
+
+  { id: "panel_22", w: 895, h: 551, length: 200, enter: "fade", exit: "fade", origin: [40, 30],
+    camera: { from: { scale: 1 }, to: { scale: 1.12 } },
+    bg: { from: { x: 4 }, to: { x: -4 } },
+    bubbles: [{ src: "bubble_08", x: 41, y: 320, w: 570, h: 380, at: 0.14 }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.4 } },
+
+  // ---- the leaping slash
+  { id: "panel_23", w: 830, h: 1302, length: 230, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { y: -4, scale: 1.04 }, to: { y: 2, scale: 1 } },
+    shakes: [0.55], sfx: [{ at: 0.3, sound: "swish" }, { at: 0.55, sound: "thud" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.2, bursts: [{ type: "ring", at: 0.55, from: [55, 82] }] } },
+
+  { id: "panel_24", w: 672, h: 1025, length: 210, enter: "fade", exit: "fade", origin: [42, 30],
+    camera: { from: { scale: 1 }, to: { scale: 1.12 } },
+    bg: { from: { scale: 1.08 }, to: { scale: 1 } },
+    bubbles: [{ src: "bubble_09", x: 279, y: -397, w: 567, h: 553, at: 0.12 }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.9 } },
+
+  { id: "panel_25", w: 800, h: 643, length: 170, enter: "cut", exit: "fade", origin: [55, 45],
+    camera: { from: { scale: 1.08 }, to: { scale: 1.2 } },
+    bubbles: [{ src: "bubble_10", x: 50, y: -148, w: 348, h: 241, at: 0.1 }],
+    shakes: [0.06],
+    fx: { ambient: "embers", tint: "mana", amount: 0.5 } },
+
+  { id: "panel_26", w: 737, h: 365, length: 130, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { scale: 0.92 }, to: { scale: 1.06 } },
+    sfx: [{ at: 0.2, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.6, bursts: [{ type: "flare", at: 0.2, from: [35, 50] }] } },
+
+  { id: "panel_27", w: 788, h: 671, length: 160, enter: "fade", exit: "zoom", focus: [50, 52],
+    camera: { from: { rotation: -3, scale: 1.06 }, to: { rotation: 2, scale: 1 } },
+    sfx: [{ at: 0.2, sound: "whoosh" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.6 } },
+
+  { id: "panel_28", w: 778, h: 540, length: 160, enter: "zoom", exit: "fade", origin: [68, 42],
+    camera: { from: { scale: 1 }, to: { scale: 1.18 } },
+    sfx: [{ at: 0.45, sound: "glint" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.3 } },
+
+  // ---- the flame pillar
+  { id: "panel_29", w: 940, h: 1709, length: 270, fit: "pan", enter: "fade", exit: "fade",
+    bg: { from: { scale: 1.06 }, to: { scale: 1 } },
+    chars: { from: { scale: 1.03 }, to: { scale: 0.98 } },
+    shakes: [0.2, 0.6], flashes: [{ at: 0.18, color: "#46beff", strength: 0.45 }], sfx: [{ at: 0.16, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.8, bursts: [{ type: "flare", at: 0.18, from: [45, 30] }, { type: "ring", at: 0.62, from: [42, 88] }] } },
+
+  { id: "panel_30", w: 940, h: 819, length: 150, enter: "fade", exit: "fade",
+    camera: { from: { x: -5 }, to: { x: 4 } },
+    chars: { from: { x: -8 }, to: { x: 6 } },
+    sfx: [{ at: 0.24, sound: "whoosh" }],
+    fx: { ambient: "speed", tint: "paper", amount: 1 } },
+
+  { id: "panel_31", w: 851, h: 386, length: 140, enter: "fade", exit: "fade", origin: [52, 55],
+    camera: { from: { scale: 1 }, to: { scale: 1.2 } },
+    flashes: [{ at: 0.4, color: "#f1ece4", strength: 0.35 }], sfx: [{ at: 0.4, sound: "glint" }] },
+
+  { id: "panel_32", w: 940, h: 828, length: 170, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { rotation: -3 }, to: { rotation: 1 }, over: [0.1, 0.35] },
+    shakes: [0.3], sfx: [{ at: 0.3, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1, bursts: [{ type: "sparks", at: 0.3, from: [58, 40] }] } },
+
+  { id: "panel_33", w: 940, h: 807, length: 180, enter: "fade", exit: "fade", origin: [50, 30],
+    camera: { from: { scale: 1 }, to: { scale: 1.16 } },
+    bg: { from: { scale: 1.08 }, to: { scale: 1 } },
+    sfx: [{ at: 0.2, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.8 } },
+
+  { id: "panel_34", w: 823, h: 407, length: 130, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.08, x: 3 }, to: { scale: 1, x: -2 } },
+    sfx: [{ at: 0.28, sound: "tap" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.5, bursts: [{ type: "ring", at: 0.28, from: [52, 70] }] } },
+
+  { id: "panel_35", w: 940, h: 864, length: 180, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.12 }, to: { scale: 1 } },
+    chars: { from: { x: -5 }, to: { x: 3 }, over: [0.1, 0.4] },
+    shakes: [0.15], flashes: [{ at: 0.14, color: "#46beff", strength: 0.4 }], sfx: [{ at: 0.12, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.4, bursts: [{ type: "flare", at: 0.14, from: [48, 30] }] } },
+
+  // ---- the leap and the slide
+  { id: "panel_36", w: 940, h: 1813, length: 260, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { y: -3 }, to: { y: 2 } },
+    shakes: [0.86], sfx: [{ at: 0.12, sound: "whoosh" }, { at: 0.86, sound: "thud" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.3, bursts: [{ type: "ring", at: 0.86, from: [30, 92] }] } },
+
+  { id: "panel_37", w: 940, h: 1034, length: 190, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.08 }, to: { scale: 1 } },
+    chars: { from: { x: 4 }, to: { x: -4 } },
+    shakes: [0.32], sfx: [{ at: 0.28, sound: "swish" }, { at: 0.36, sound: "skid" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1, bursts: [{ type: "ring", at: 0.36, from: [70, 88] }] } },
+
+  { id: "panel_38", w: 844, h: 417, length: 140, enter: "fade", exit: "fade", origin: [42, 50],
+    camera: { from: { scale: 1 }, to: { scale: 1.16 } },
+    fx: { ambient: "embers", tint: "mana", amount: 0.6 } },
+
+  { id: "panel_39", w: 875, h: 445, length: 140, enter: "cut", exit: "fade", origin: [38, 45],
+    camera: { from: { scale: 1.04 }, to: { scale: 1.18 } },
+    shakes: [0.05],
+    fx: { ambient: "embers", tint: "mana", amount: 0.6 } },
+
+  // ---- the stands
+  { id: "panel_40", w: 882, h: 968, length: 200, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.06 }, to: { scale: 1 } },
+    bg: { from: { scale: 1.06, y: 2 }, to: { scale: 1, y: -2 } },
+    bubbles: [{ src: "bubble_11", x: -6, y: -150, w: 894, h: 366, at: 0, pop: false }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.5 } },
+
+  // ---- the counterattack
+  { id: "panel_41", w: 940, h: 2016, length: 290, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { x: -2 }, to: { x: 2 } },
+    sfx: [{ at: 0.12, sound: "flame" }, { at: 0.28, sound: "whoosh" }, { at: 0.44, sound: "whoosh" }, { at: 0.86, sound: "tap" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.6, bursts: [{ type: "ring", at: 0.86, from: [30, 94] }] } },
+
+  { id: "panel_42", w: 899, h: 710, length: 160, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.1, rotation: -2 }, to: { scale: 1, rotation: 0 } },
+    shakes: [0.26], sfx: [{ at: 0.26, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.9, bursts: [{ type: "sparks", at: 0.26, from: [56, 48] }] } },
+
+  { id: "panel_43", w: 940, h: 907, length: 170, enter: "fade", exit: "cut",
+    camera: { from: { scale: 1.06 }, to: { scale: 1 } },
+    chars: { from: { scale: 1.06 }, to: { scale: 1 } },
+    sfx: [{ at: 0.2, sound: "skid" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.8, bursts: [{ type: "ring", at: 0.22, from: [76, 82] }] } },
+
+  { id: "panel_44", w: 940, h: 912, length: 160, enter: "cut", exit: "fade",
+    chars: { from: { x: 4, scale: 1.04 }, to: { x: -2, scale: 1 }, over: [0, 0.35] },
+    sfx: [{ at: 0.06, sound: "whoosh" }],
+    fx: { ambient: "speed", tint: "mana", amount: 0.8 } },
+
+  { id: "panel_45", w: 940, h: 776, length: 150, enter: "fade", exit: "fade",
+    camera: { from: { x: 4 }, to: { x: -4 } },
+    chars: { from: { x: 8 }, to: { x: -6 } },
+    sfx: [{ at: 0.25, sound: "swish" }],
+    fx: { ambient: "speed", tint: "paper", amount: 1 } },
+
+  { id: "panel_46", w: 940, h: 682, length: 150, enter: "cut", exit: "fade",
+    camera: { from: { scale: 1.12 }, to: { scale: 1 } },
+    shakes: [0.16], flashes: [{ at: 0.14, color: "#e5202e", strength: 0.4 }], sfx: [{ at: 0.14, sound: "clang" }],
+    fx: { ambient: "speed", tint: "paper", amount: 0.6, bursts: [{ type: "sparks", at: 0.16, from: [40, 72] }] } },
+
+  { id: "panel_47", w: 940, h: 1965, length: 280, fit: "pan", enter: "fade", exit: "fade",
+    sfx: [{ at: 0.1, sound: "swish" }, { at: 0.42, sound: "tap" }, { at: 0.56, sound: "tap" }, { at: 0.68, sound: "tap" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.8, bursts: [{ type: "ring", at: 0.7, from: [50, 80] }] } },
+
+  { id: "panel_48", w: 940, h: 703, length: 170, enter: "fade", exit: "fade", origin: [45, 40],
+    camera: { from: { scale: 1 }, to: { scale: 1.12 } },
+    bubbles: [{ src: "bubble_12", x: 68, y: 627, w: 423, h: 260, at: 0.3 }],
+    shakes: [0.1],
+    fx: { ambient: "embers", tint: "mana", amount: 0.7 } },
+
+  // ---- "Professor."
+  { id: "panel_49", w: 940, h: 2898, length: 320, fit: "pan", enter: "fade", exit: "fade",
+    bg: { from: { scale: 1.04 }, to: { scale: 1 } },
+    chars: { from: { scale: 0.98 }, to: { scale: 1.02 } },
+    bubbles: [{ src: "bubble_13", x: 243, y: -265, w: 440, h: 378, at: 0.05 },
+              { src: "bubble_14", x: 458, y: 1848, w: 454, h: 415, at: 0.6 }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.5 } },
+
+  { id: "panel_50", w: 832, h: 613, length: 160, enter: "fade", exit: "fade", origin: [50, 45],
+    camera: { from: { scale: 1 }, to: { scale: 1.14 } },
+    fx: { ambient: "embers", tint: "ember", amount: 0.7 } },
+
+  // ---- the clash
+  { id: "panel_51", w: 716, h: 193, length: 110, enter: "fade", exit: "fade",
+    camera: { from: { x: 6 }, to: { x: -6 } },
+    sfx: [{ at: 0.25, sound: "swish" }],
+    fx: { ambient: "speed", tint: "paper", amount: 1 } },
+
+  { id: "panel_52", w: 940, h: 3569, length: 380, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { scale: 0.98 }, to: { scale: 1.02 } },
+    shakes: [0.74], flashes: [{ at: 0.72, color: "#f1ece4", strength: 0.6 }],
+    sfx: [{ at: 0.08, sound: "whoosh" }, { at: 0.36, sound: "swish" }, { at: 0.72, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.4, bursts: [{ type: "sparks", at: 0.73, from: [50, 70] }] } },
+
+  { id: "panel_53", w: 940, h: 988, length: 190, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { x: 3 }, to: { x: -3 } },
+    shakes: [0.16], sfx: [{ at: 0.14, sound: "thud" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1, bursts: [{ type: "ring", at: 0.16, from: [40, 78] }] } },
+
+  { id: "panel_54", w: 940, h: 1029, length: 200, enter: "fade", exit: "fade", origin: [62, 30],
+    camera: { from: { scale: 1 }, to: { scale: 1.1 } },
+    bubbles: [{ src: "bubble_15", x: 39, y: -285, w: 388, h: 414, at: 0.1 }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.4 } },
+
+  { id: "panel_55", w: 847, h: 462, length: 140, enter: "fade", exit: "fade", origin: [40, 45],
+    camera: { from: { scale: 1 }, to: { scale: 1.14 } },
+    fx: { ambient: "speed", tint: "paper", amount: 0.5 } },
+
+  // ---- "a totally different level"
+  { id: "panel_56", w: 940, h: 1871, length: 280, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { scale: 0.97 }, to: { scale: 1.03 } },
+    bubbles: [{ src: "bubble_16", x: 82, y: -125, w: 405, h: 298, at: 0.06 }],
+    sfx: [{ at: 0.3, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.4, bursts: [{ type: "flare", at: 0.3, from: [35, 30] }] } },
+
+  { id: "panel_57", w: 782, h: 522, length: 150, enter: "fade", exit: "zoom", focus: [58, 55],
+    camera: { from: { scale: 1 }, to: { scale: 1.1 } },
+    sfx: [{ at: 0.35, sound: "glint" }],
+    flashes: [{ at: 0.35, color: "#f1ece4", strength: 0.3 }] },
+
+  { id: "panel_58", w: 871, h: 732, length: 150, enter: "zoom", exit: "fade",
+    camera: { from: { scale: 1.08 }, to: { scale: 1 } },
+    fx: { ambient: "embers", tint: "mana", amount: 0.5 } },
+
+  { id: "panel_59", w: 811, h: 531, length: 170, enter: "fade", exit: "fade", origin: [50, 60],
+    camera: { from: { scale: 1 }, to: { scale: 1.14 } },
+    bubbles: [{ src: "bubble_17", x: 327, y: -211, w: 423, h: 260, at: 0.1 }] },
+
+  { id: "panel_60", w: 940, h: 529, length: 220, enter: "fade", exit: "fade",
+    camera: { from: { scale: 1.14 }, to: { scale: 1 }, },
+    chars: { from: { scale: 1.06 }, to: { scale: 1 }, over: [0.1, 0.3] },
+    shakes: [0.2], flashes: [{ at: 0.18, color: "#f1ece4", strength: 0.55 }], sfx: [{ at: 0.18, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.9, bursts: [{ type: "sparks", at: 0.2, from: [76, 42] }] } },
 ];
 const ASSETS = "assets/";
-// the fight music: plays from the start of this panel to the end, fading in and out
-const MUSIC = { src: "audio/fight.mp3", from: "panel_06", volume: 0.5 };
+// the music: each track loops while its panels are on screen and crossfades into the next one.
+// `to` is the last panel it plays on (leave it out to play to the end). Missing files are skipped quietly.
+const MUSIC = [
+  { src: "audio/academy.mp3", from: "panel_01", to: "panel_05", volume: 0.4 },
+  { src: "audio/fight.mp3", from: "panel_06", volume: 0.5 },
+];
 
 /* ====================================================================== */
 
@@ -333,20 +618,21 @@ SCENES.forEach((s, i) => {
   scene.className = "scene";
   scene.setAttribute("aria-label", `Panel ${i + 1}`);
   scene.style.setProperty("--ratio", `${s.w} / ${s.h}`);
+  // images get their file only when the reader comes near (see `preload`), so 60 panels don't load at once
   const bubbles = (s.bubbles || []).map((b) =>
-    `<img class="bubble" src="${ASSETS}${b.src}.webp" alt="" style="left:${b.x / s.w * 100}%;top:${b.y / s.h * 100}%;width:${b.w / s.w * 100}%">`).join("");
+    `<img class="bubble" data-src="${ASSETS}${b.src}.webp" alt="" onerror="this.style.display='none'" style="left:${b.x / s.w * 100}%;top:${b.y / s.h * 100}%;width:${b.w / s.w * 100}%">`).join("");
   scene.innerHTML = `
-    <div class="zoom"><div class="shake"><div class="rig">
+    <div class="zoom"><div class="shake"><div class="pan"><div class="rig">
       <div class="frame">
-        <img class="bg" src="${ASSETS}${s.id}_background.webp" alt="">
+        <img class="bg" data-src="${ASSETS}${s.id}_background.webp" alt="" decoding="async">
         ${s.fx ? '<canvas class="fx-mid"></canvas>' : ""}
-        <img class="chars" src="${ASSETS}${s.id}_characters.webp" alt="">
+        <img class="chars" data-src="${ASSETS}${s.id}_characters.webp" alt="" decoding="async">
       </div>${bubbles}
-    </div></div></div>`;
+    </div></div></div></div>`;
   stage.insertBefore(scene, flash);
   s.el = scene;
   s.parts = {
-    zoom: scene.querySelector(".zoom"), shake: scene.querySelector(".shake"), rig: scene.querySelector(".rig"),
+    zoom: scene.querySelector(".zoom"), shake: scene.querySelector(".shake"), pan: scene.querySelector(".pan"), rig: scene.querySelector(".rig"),
     frame: scene.querySelector(".frame"), bg: scene.querySelector(".bg"), chars: scene.querySelector(".chars"),
     fx: scene.querySelector(".fx-mid"), bubbles: [...scene.querySelectorAll(".bubble")],
   };
@@ -364,22 +650,47 @@ function layout() {
     s.travel = Math.max(0, s.boxH - vh * 0.86); // how far a tall panel pans
     s.parts.zoom.style.setProperty("--w", `${s.boxW}px`);
     s.parts.zoom.style.setProperty("--h", `${s.boxH}px`);
-    s.parts.rig.style.setProperty("--travel", `${s.travel}px`);
+    s.parts.pan.style.setProperty("--travel", `${s.travel}px`);
+    // bubbles that hang off the panel are nudged back so they stay on screen, clear of the sound button at the top
+    (s.bubbles || []).forEach((b, k) => {
+      const el = s.parts.bubbles[k], m = 8, mTop = 56;
+      const left = (vw - s.boxW) / 2, top = (vh - s.boxH) / 2;
+      let x = b.x * scale, y = b.y * scale;
+      const w = b.w * scale, h = b.h * scale;
+      x = Math.max(m - left, Math.min(x, vw - m - left - w));
+      if (s.fit !== "pan") y = Math.max(mTop - top, Math.min(y, vh - m - top - h));
+      else y = Math.max(y, mTop - top - s.travel / 2); // a tall panel: just keep it below the top of the screen at the start
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.width = `${w}px`;
+    });
   });
   particles.resize();
+}
+
+// give the images near the current panel their files; everything further on loads as the reader gets there
+const loaded = new Set();
+function preload(i) {
+  for (let j = Math.max(0, i - 1); j <= Math.min(SCENES.length - 1, i + 3); j++) {
+    if (loaded.has(j)) continue;
+    loaded.add(j);
+    SCENES[j].el.querySelectorAll("img[data-src]").forEach((img) => { img.src = img.dataset.src; });
+  }
 }
 
 let timeline = null;
 const starts = [];
 let total = 0;
-const cues = []; // sound effects and voice lines, in timeline time
+const cues = []; // sound effects, in timeline time
 
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const particles = makeParticles();
 const sound = makeSound();
 if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
   document.documentElement.classList.add("static");
+  document.querySelectorAll("img[data-src]").forEach((img) => { img.loading = "lazy"; img.src = img.dataset.src; });
 } else {
+  preload(0);
   gsap.registerPlugin(ScrollTrigger);
   layout();
   buildTimeline();
@@ -418,7 +729,7 @@ function buildTimeline() {
     // camera: panel-wide moves, plus the pan down a tall panel
     const cam = s.camera || { from: {}, to: {} };
     tl.fromTo(p.rig, toGsap(cam.from), { ...toGsap(cam.to), duration: L }, t);
-    if (s.fit === "pan") tl.fromTo(p.rig, { "--pan": 0 }, { "--pan": 1, duration: L }, t);
+    if (s.fit === "pan") tl.fromTo(p.pan, { "--pan": 0 }, { "--pan": 1, duration: L }, t);
 
     // depth: background and characters move separately
     for (const layer of ["bg", "chars"]) {
@@ -431,10 +742,13 @@ function buildTimeline() {
     // speech bubbles pop in, then drift up and fade before the panel leaves
     (s.bubbles || []).forEach((b, k) => {
       const el = p.bubbles[k];
+      if (b.pop === false) {
+        tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, at(b.at));
+        return;
+      }
       tl.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
         { scale: 1, rotation: 0, autoAlpha: 1, duration: 0.08 * L, ease: "back.out(2.2)" }, at(b.at));
       tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(0.8));
-      if (b.voice) cues.push({ time: at(b.at), voice: b.voice });
     });
     (s.sfx || []).forEach((f) => cues.push({ time: at(f.at), sfx: f.sound }));
 
@@ -481,7 +795,7 @@ function buildTimeline() {
       const now = self.progress * total;
       let i = starts.findLastIndex((s) => s <= now);
       if (i < 0) i = 0;
-      if (i !== shown) { shown = i; counterNow.textContent = String(i + 1).padStart(2, "0"); }
+      if (i !== shown) { shown = i; counterNow.textContent = String(i + 1).padStart(2, "0"); preload(i); }
     },
   });
 }
@@ -528,12 +842,20 @@ function makeParticles() {
     front.height = stage.clientHeight * dpr;
     SCENES.forEach((s) => {
       if (!s.parts.fx) return;
-      const d = Math.min(dpr, 4096 / Math.max(s.boxW, s.boxH)); // canvases have a size limit
-      s.parts.fx.width = s.boxW * d;
-      s.parts.fx.height = s.boxH * d;
-      s.fxScale = d;
+      s.fxScale = Math.min(dpr, 4096 / Math.max(s.boxW, s.boxH)); // canvases have a size limit
       s.fxParts = [];
+      if (s.fxDrawn) claim(s);
     });
+  }
+  // a panel's canvas only takes memory while the panel is on screen
+  function claim(s) {
+    s.parts.fx.width = s.boxW * s.fxScale;
+    s.parts.fx.height = s.boxH * s.fxScale;
+  }
+  function release(s) {
+    s.parts.fx.width = s.parts.fx.height = 0;
+    s.fxDrawn = false;
+    s.fxParts = [];
   }
 
   function spawn(s, W, H, k) {
@@ -550,6 +872,7 @@ function makeParticles() {
   const lifeAlpha = (q) => Math.min(1, q.age / 0.4, (q.life - q.age) / 0.6);
 
   function ambient(s, dt, opacity) {
+    if (!s.fxDrawn) claim(s);
     const c = s.parts.fx, g = c.getContext("2d");
     const W = s.boxW, H = s.boxH, k = W / 700;
     const target = Math.round(BASE[s.fx.ambient] * (s.fx.amount ?? 1) * few * Math.min(2.2, Math.max(0.7, H / W)));
@@ -696,7 +1019,7 @@ function makeParticles() {
     SCENES.forEach((s, i) => {
       const opacity = +gsap.getProperty(s.el, "opacity");
       if (opacity < 0.02) {
-        if (s.fxDrawn) { s.parts.fx.getContext("2d").clearRect(0, 0, s.parts.fx.width, s.parts.fx.height); s.fxDrawn = false; s.fxParts = []; }
+        if (s.fxDrawn) release(s);
         return;
       }
       if (opacity > leadOpacity) { lead = s; leadOpacity = opacity; }
@@ -712,12 +1035,12 @@ function makeParticles() {
 
 /* ---------------------------------------------------------------- sound
    Off until the reader taps a Sound button (browsers block sound before that).
-   The sword effects are synthesised here, so they need no files; music and voices are files in assets/audio/,
+   The sword effects are synthesised here, so they need no files; the music tracks are files in assets/audio/,
    and the page simply stays quiet for any file that is not there yet. */
 function makeSound() {
   const buttons = [...document.querySelectorAll("[data-sound]")];
-  let ctx = null, on = false, musicGain, sfxGain, voiceGain, noise, musicLevel = -1, duckUntil = 0, last = 0;
-  const voices = {};
+  let ctx = null, on = false, sfxGain, noise, last = 0;
+  const tracks = []; // one per MUSIC entry that loaded: its gain, the stretch of story it covers, its volume
 
   function label() {
     for (const b of buttons) {
@@ -731,25 +1054,33 @@ function makeSound() {
       return res.ok ? await ctx.decodeAudioData(await res.arrayBuffer()) : null;
     } catch { return null; }
   }
+  // where a track plays, in timeline time: from the start of `from` to the end of `to`
+  function span(m) {
+    const a = SCENES.findIndex((s) => s.id === m.from), z = m.to ? SCENES.findIndex((s) => s.id === m.to) : SCENES.length - 1;
+    return [starts[Math.max(0, a)] ?? 0, z < 0 || z >= SCENES.length - 1 ? total : starts[z + 1]];
+  }
   async function start() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -10;
     limiter.connect(ctx.destination);
-    [musicGain, sfxGain, voiceGain] = [0, 0.8, 1].map((v) => { const g = ctx.createGain(); g.gain.value = v; g.connect(limiter); return g; });
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = 0.8;
+    sfxGain.connect(limiter);
     noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = noise.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const music = await load(MUSIC.src);
-    if (music) {
-      const src = ctx.createBufferSource();
-      src.buffer = music;
+    await Promise.all(MUSIC.map(async (m) => {
+      const buffer = await load(m.src);
+      if (!buffer) return;
+      const src = ctx.createBufferSource(), gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.buffer = buffer;
       src.loop = true;
-      src.connect(musicGain);
+      src.connect(gain).connect(limiter);
       src.start();
-    }
-    const names = SCENES.flatMap((s) => (s.bubbles || []).map((b) => b.voice).filter(Boolean));
-    await Promise.all(names.map(async (n) => { voices[n] = await load(`audio/voice_${n}.mp3`); }));
+      tracks.push({ gain, span: span(m), volume: m.volume ?? 0.5, level: -1 });
+    }));
   }
   async function toggle() {
     on = !on;
@@ -802,29 +1133,35 @@ function makeSound() {
       noiseHit(t, "highpass", 3000, 6000, 0.7, 0.001, 0.06, 0.8);
       tone(t, "sine", 160, 60, 0.002, 0.22, 0.6);
     },
+    // boots scraping across the arena floor
+    skid: (t) => { noiseHit(t, "bandpass", 1800, 700, 2.5, 0.03, 0.55, 0.45); noiseHit(t, "lowpass", 600, 200, 0.7, 0.02, 0.4, 0.3); },
+    // a light, quick footstep
+    tap: (t) => { tone(t, "sine", 210, 90, 0.002, 0.08, 0.55); noiseHit(t, "bandpass", 2600, 1500, 3, 0.001, 0.04, 0.35); },
+    // a heavy landing
+    thud: (t) => { tone(t, "sine", 95, 38, 0.004, 0.42, 1); noiseHit(t, "lowpass", 700, 120, 0.7, 0.004, 0.5, 0.6); },
+    // light catching an eye or a blade
+    glint: (t) => { tone(t, "sine", 2637, 2600, 0.004, 0.7, 0.18); tone(t + 0.05, "sine", 3951, 3900, 0.004, 0.5, 0.1); },
   };
 
-  // follow the story: music level by position, effects and voices as their moment passes going forward
+  // follow the story: each track's level by position, effects as their moment passes going forward
   function update(now) {
     if (!ctx || !on) { last = now; return; }
-    const from = starts[SCENES.findIndex((s) => s.id === MUSIC.from)] ?? 0;
-    let level = Math.min(1, Math.max(0, (now - from) / 40)) * Math.min(1, Math.max(0, (total - now) / 60)) * MUSIC.volume;
-    if (ctx.currentTime < duckUntil) level *= 0.4; // make room for a voice line
-    if (Math.abs(level - musicLevel) > 0.005) {
-      musicGain.gain.setTargetAtTime(level, ctx.currentTime, 0.25);
-      musicLevel = level;
+    for (const tr of tracks) {
+      // crossfade: in over 40 units around the start of its stretch, out over 60 around the end;
+      // the first track is already playing at the top, the last one has faded out by the end card
+      const [a, z] = tr.span;
+      const fadeIn = a <= 0 ? 1 : (now - a + 20) / 40;
+      const fadeOut = z >= total ? (z - now) / 60 : (z - now + 30) / 60;
+      const level = Math.min(1, Math.max(0, fadeIn)) * Math.min(1, Math.max(0, fadeOut)) * tr.volume;
+      if (Math.abs(level - tr.level) > 0.005) {
+        tr.gain.gain.setTargetAtTime(level, ctx.currentTime, 0.25);
+        tr.level = level;
+      }
     }
     if (now > last && now - last < 25) { // forward, and not a jump across the page
       for (const cue of cues) {
         if (cue.time <= last || cue.time > now) continue;
-        if (cue.sfx) EFFECTS[cue.sfx]?.(ctx.currentTime + 0.01);
-        else if (voices[cue.voice]) {
-          const src = ctx.createBufferSource();
-          src.buffer = voices[cue.voice];
-          src.connect(voiceGain);
-          src.start();
-          duckUntil = ctx.currentTime + src.buffer.duration + 0.3;
-        }
+        EFFECTS[cue.sfx]?.(ctx.currentTime + 0.01);
       }
     }
     last = now;

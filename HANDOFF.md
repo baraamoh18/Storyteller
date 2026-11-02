@@ -1,8 +1,9 @@
 # Project Handoff: AI-Driven Manhwa Scrollytelling Website
 
-> **Status (last updated 2026-11-02):** Stage 1 (splitting the chapter into layers) is done and runs fast on Colab's T4 GPU.
-> Stages 2 and 3 are working for **panels 1–10**: a scroll site with parallax, zoom-through cuts, particles, sword sound effects and voiced speech bubbles.
-> **Waiting on the user:** pick the voices, and choose or generate the fight music. Then: panels 11–65.
+> **Status (last updated 2026-11-02, second session):** Stage 1 (splitting the chapter into layers) is done and runs fast on Colab's T4 GPU.
+> Stages 2 and 3 are working for **panels 1–60**: a scroll site with parallax, zoom-through cuts, particles, sword sound effects and all speech bubbles.
+> **Voices are switched off** at the user's request ("needs more adjustments").
+> **Waiting on the user:** run `tools/music/Make_Duel_Music.ipynb` (or send free tracks) and pick an academy and a fight track; send panels 61–65.
 > Read **Section 9: Next steps** and **Section 10: Instructions for the next AI session** first.
 
 ---
@@ -30,7 +31,7 @@ Inspired by "The Notturno Experience" interactive graphic novel.
 ## 3. Where everything lives
 
 * **Repo:** `github.com/baraamoh18/Storyteller`
-  * **Branch with all the work:** `claude/tender-planck-n2lbxf`. No pull request has been opened.
+  * **Branch with all the work:** `claude/new-session-em88ar` (it contains everything from the older `claude/tender-planck-n2lbxf`). No pull request has been opened.
   * The older branch `claude/project-thread-6clyex` has the original layer splitter only.
 * **Live preview** (private artifact, only the user can open it): https://claude.ai/artifact/G6A8f5qCYfSL8KYwcFWKxH. It is published from `site/index.html`, with the `<!doctype>`, `<html>`, `<head>` and `<body>` wrappers stripped (the artifact host adds its own) and every `site/assets/...` file passed through the publish `files` map.
 
@@ -44,14 +45,13 @@ tools/voices/
   make_voices.py                   makes the voice lines with Kokoro (kokoro-onnx), runs on a normal CPU
   .gitignore                       model files and out/ are not committed
 tools/music/
-  Make_Fight_Music.ipynb           Colab notebook: 3 looping 30 s fight tracks with MusicGen
+  Make_Duel_Music.ipynb            Colab notebook: 2 academy + 3 fight looping 30 s tracks with MusicGen -> duel_music.zip
 site/
   index.html                       the whole scroll site (CSS + JS in one file; GSAP from cdnjs)
   README.md                        how to edit the scene plan, sound, assets
-  assets/panel_XX_background.webp, panel_XX_characters.webp   panels 1-10 (WebP, ~0.8 MB total)
-  assets/bubble_*.webp             very_well, go_easy (panels 2, 6); going_easy_huh, not_using_spells (for panels 13, 19)
-  assets/audio/voice_*.mp3         very_well, go_easy, going_easy_huh, not_using_spells
-  assets/audio/fight.mp3           NOT THERE YET: the page plays no music until it exists
+  assets/panel_XX_background.webp, panel_XX_characters.webp   panels 1-60 (WebP, ~6 MB total)
+  assets/bubble_*.webp             very_well, go_easy, going_easy_huh, not_using_spells (bubbles 01-04), bubble_07 ... bubble_18
+  assets/audio/academy.mp3, fight.mp3   NOT THERE YET: the page plays no music until they exist (the folder does not exist either)
 ```
 
 Commits on the branch, oldest first:
@@ -76,6 +76,8 @@ Commits on the branch, oldest first:
 | `733d326` | Quiet the expected cuDNN errors |
 | `a6a9a74` | Scroll site, panels 1–10 |
 | `77414a1` | Particles, sound effects, voices, music slot |
+| `ab1bc52` | Handoff document |
+| (this session) | Merge into `claude/new-session-em88ar`; panels 11–60, all bubbles, voices off, music zones, pan fix |
 
 ---
 
@@ -161,12 +163,28 @@ Focus points are percentages of the panel.
 | 9 | **"CLANK"**, tall panel | pans down; red flash (strength 0.55), hard shake, clang sound, spark burst with a shockwave ring at 0.46 |
 | 10 | the face-off | settles in; **final zoom into the swordsman's eye (80%, 45%)**, then the "To be continued" card |
 
+### Panels 11–60 (added in the second session)
+Story beats, so later choreography stays consistent. The swordsman is **Professor Geist** (bubble 15 says so).
+| Panels | Beat | Main effects |
+|---|---|---|
+| 11–15 | first exchange: SLASH, SKIDD, "Going easy, huh?", FIRM grip, DASH | sparks, skid, flame flare; zoom-through 14 → 15 |
+| 16–22 | the onslaught, top-down VWOOSH (18, pan), "not using any spells", "Who does he take me for?!", "disciplinary committee… rats" | clangs, speed lines |
+| 23–28 | leaping SLASH, Arthur: "Is there really a need for me to attack…", "F---!", flame hand, zoom-through 27 → 28 (Arthur's eye) | thud, flare, glint |
+| 29–35 | FLAME PILLAR (pan, blue flash), WOOSH, eye glint, SHHING parry, aura, TAP, WOOM | flame, clang, tap |
+| 36–39 | leap and slide, close-ups | thud, skid |
+| 40 | the stands: "That doesn't look like a demonstration" / "Should we get the student council?" | bubble 11 is a strip of the wall art, so `pop: false` |
+| 41–48 | counterattack: FWOOM ×3, SLING, SKIDD/RUSH match cut (43 → 44, `cut`), SHH, ING (red flash), TAP TAP, "This brat got faster!" | |
+| 49–50 | "Even rats become deadly when cornered," … "Professor." (pan) | |
+| 51–55 | DASH, the 3569 px CLASH (pan, white flash), STAGGER, "Arthur is pushing Professor Geist back." | |
+| 56–60 | "On a totally different level.", eye, OPEN (zoom-through 57 → 58), "It's time to end this.", CLANG | |
+
 ---
 
 ## 6. Stage 3: the scroll site (`site/index.html`)
 
 * **GSAP 3.12.5 + ScrollTrigger** from cdnjs. One pinned (sticky) stage. One master timeline, in which **1 time unit = 1vh of scroll**, scrubbed with `scrub: 0.7`.
-* **Layer nesting per panel:** `.scene` (opacity) → `.zoom` (enter/exit zoom, origin = `focus`) → `.shake` → `.rig` (camera; the tall-panel pan uses the CSS `translate` property with the `--pan` and `--travel` variables) → `.frame` (clip) → `img.bg`, `canvas.fx-mid`, `img.chars`. Bubbles sit in `.rig`, outside the clip, so they can overflow the panel border.
+* **Layer nesting per panel:** `.scene` (opacity) → `.zoom` (enter/exit zoom, origin = `focus`; centred with absolute position + negative margins) → `.shake` → `.pan` (the tall-panel pan: CSS `translate` from the `--pan` and `--travel` variables) → `.rig` (camera) → `.frame` (clip) → `img.bg`, `canvas.fx-mid`, `img.chars`. Bubbles sit in `.rig`, outside the clip, so they can overflow the panel border; `layout()` nudges them back on screen (56 px clear at the top for the Sound button).
+* **Loading:** images carry `data-src` and get their file when the reader is within 1 panel behind / 3 ahead (`preload`). Particle canvases get their size only while their panel is visible.
 * **Scene plan schema:**
 
   | Setting | What it does |
@@ -186,14 +204,26 @@ Focus points are percentages of the panel.
   * **Music:** `MUSIC = { src: "audio/fight.mp3", from: "panel_06", volume: 0.5 }`. It loops, with the volume following the scroll (fades in over 40 units, out over the last 60) and dipping to 40% while a voice plays.
   * Missing audio files are skipped quietly.
 * **Reduced motion:** the panels show as a plain column, with no animation, particles or sound.
-* **Important bug already fixed:** do **not** use `invalidateOnRefresh: true`. It wiped the hidden starting state of later `fromTo` tweens, so bubbles showed before their moment.
+* **Important bugs already fixed:**
+  * do **not** use `invalidateOnRefresh: true`. It wiped the hidden starting state of later `fromTo` tweens, so bubbles showed before their moment.
+  * GSAP writes `translate: none` on any element whose transform it animates, which silently killed the tall-panel pan (panels 6 and 9 never panned). The pan now lives on its own `.pan` wrapper that GSAP never transforms.
+  * A grid with `place-items: center` pins an item taller than the screen to the top, so tall panels started half-way down their pan. `.zoom` is now centred by hand.
 * **Placing bubbles for later panels:** position in the panel = bubble x,y minus panel x,y (from `layers.json`; see the tables in Section 11). Bubbles listed as "between panels" need to be attached to the nearest panel, possibly at negative coordinates.
 
 ---
 
 ## 7. Audio
 
-### Voices (made, waiting for the user to choose)
+### Music zones (site)
+`MUSIC` in `index.html` is a list: `{ src, from, to, volume }`. Each loaded track loops all the time; its gain follows the scroll,
+fading in over 40 units around the start of its stretch and out over 60 around the end, so neighbouring tracks crossfade.
+The first track is already up at the top of the page; the last fades out by the end card. Now: `academy.mp3` panels 1–5 (0.4), `fight.mp3` panel 6 on (0.5).
+The user's taste in music for TBATE (their notes): Academy arc = warm acoustic / light fantasy / gentle piano; fights = heavy cinematic orchestral
+(Attack on Titan / Solo Leveling style), percussion and choir for desperate turns; Relictombs = dark synthwave / post-rock. **Instrumental only.**
+A long fight on one 30 s loop repeats a lot: a second fight zone (e.g. panels 40–60, starting at the stands) is an easy upgrade once there are two good fight takes.
+
+### Voices (OFF for now: the user wants more adjustments first)
+The site no longer loads or plays voices and `site/assets/audio/voice_*.mp3` were removed. The old playback code (with music ducking) is in commit `77414a1`.
 `tools/voices/make_voices.py` uses **kokoro-onnx**:
 * The regular `kokoro` package needs Python below 3.13, so it won't install on Colab now.
 * kokoro-onnx runs on a CPU. Its model files come from GitHub: `https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/` (`kokoro-v1.0.onnx` and `voices-v1.0.bin`).
@@ -220,7 +250,7 @@ The user was sent the candidate takes (`<line>__<who>_<A|B|C>.mp3`) and has **no
 
 ### Music (not done)
 The user wants **both**:
-1. **AI-generated:** `tools/music/Make_Fight_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes three tracks (`orchestral`, `dark_fantasy`, `hybrid`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `fight_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
+1. **AI-generated:** `tools/music/Make_Duel_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes five tracks (`academy_strings`, `academy_harp`, `fight_orchestral`, `fight_choir`, `fight_hybrid`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
 2. **Free to use:** the user downloads a track, e.g. from Pixabay Music ("epic battle", "anime fight") or the YouTube Audio Library (Cinematic, dramatic). The AI then trims or loops it into `site/assets/audio/fight.mp3`.
 
 There is no official per-chapter soundtrack for this webtoon.
@@ -235,14 +265,9 @@ There is no official per-chapter soundtrack for this webtoon.
 ---
 
 ## 9. Next steps
-1. **Voices:** the user picks Arthur, swordsman and onlooker options (A/B/C), or asks for changes such as deeper, slower or more British.
-2. **Music:** run the music notebook and/or send a free track. Convert it to `site/assets/audio/fight.mp3`, check the loop point, adjust `MUSIC.volume`, then republish.
-3. **Panels 11–65:**
-   * The user sends panel folders in batches, plus `layers.json` and `bubbles/`.
-   * Convert them to WebP: backgrounds at quality 80, characters at 85, bubbles at 90, using `method=6`.
-   * Extend `SCENES` with choreography: zoom-throughs on match cuts, `pan` for tall panels (panel 52 is 3569 px tall; the particle canvas size is capped at 4096 px).
-   * Add bubbles from the table in Section 11, skipping bubbles 05 and 06.
-   * Collect the text of the other 14 bubbles (from the bubble images; the user can confirm the speaker) and make their voices.
+1. **Music:** the user runs `Make_Duel_Music.ipynb` and/or sends free tracks. Pick one academy and one fight take, convert to `site/assets/audio/academy.mp3` and `fight.mp3` (mono or stereo MP3, ~128 kbps), check the loop point, adjust the volumes in `MUSIC`, then republish.
+2. **Panels 61–65:** not sent yet. Convert (backgrounds q80, characters q85, `method=6`) and extend `SCENES`; `bubble_18` ("You think this is enough?!", panel 65 at 103,240) is already in `assets/`. Then end on a final beat and update the footer card.
+3. **Voices (later):** the user wants adjustments before they come back. All bubble texts are now known (Section 11), so more lines can be made.
 4. **Nice-to-haves:**
    * recorded free sound effects (e.g. CC0 from freesound) in place of the synthesised ones;
    * a letter-count rule against eye false bubbles;
@@ -276,7 +301,7 @@ There is no official per-chapter soundtrack for this webtoon.
 * rembg's models download from GitHub releases into `~/.u2net` / `~/.rembg`. `birefnet-general` takes about 40 s per panel on the CPU here.
 
 **Where the user's work lives**
-* Commit and push to `claude/tender-planck-n2lbxf` after each change.
+* Commit and push to `claude/new-session-em88ar` after each change (or the branch the session names).
 * Republish the preview artifact to the same URL by publishing the same scratch file path, or by passing `url`.
 
 ---
@@ -311,15 +336,17 @@ Bubbles ("in panel" = position relative to that panel's top-left corner, the num
 | bubble_04 | panel_19 | 102,25179 | 485x359 | 102,−170 | "HE'S NOT USING ANY SPELLS…" (onlooker) |
 | bubble_05 | panel_19 | 587,25612 | 83x56 | 587,263 | **an eye: ignore** |
 | bubble_06 | panel_19 | 767,25669 | 95x47 | 767,320 | **an eye: ignore** |
-| bubble_07 | between panels | 503,26520 | 393x256 | – | text unknown |
-| bubble_08 | panel_22 | 86,27498 | 570x380 | 41,320 | text unknown |
-| bubble_09 | between panels | 338,29310 | 567x553 | – | text unknown |
-| bubble_10 | between panels | 158,31058 | 348x241 | – | text unknown |
-| bubble_11 | panel_40 | 21,47477 | 894x366 | −6,−150 | text unknown |
-| bubble_12 | between panels | 68,60290 | 423x260 | – | text unknown |
-| bubble_13 | between panels | 243,60737 | 440x378 | – | text unknown |
-| bubble_14 | panel_49 | 458,62850 | 454x415 | 458,1848 | text unknown |
-| bubble_15 | between panels | 39,70499 | 388x414 | – | text unknown |
-| bubble_16 | panel_56 | 82,72857 | 405x298 | 82,−125 | text unknown |
-| bubble_17 | between panels | 379,77217 | 423x260 | – | text unknown |
-| bubble_18 | panel_65 | 103,83980 | 404x341 | 103,240 | text unknown |
+| bubble_07 | (attached to panel_21) | 503,26520 | 393x256 | 503,−195 | "WHO DOES HE TAKE ME FOR?!" (Geist) |
+| bubble_08 | panel_22 | 86,27498 | 570x380 | 41,320 | "I'M SURE THE DISCIPLINARY COMMITTEE ISN'T MADE ONLY OF RATS WHO KEEP DODGING AND RUNNING AWAY!" (Geist) |
+| bubble_09 | (panel_24) | 338,29310 | 567x553 | 279,−397 | "IS THERE REALLY A NEED FOR ME TO ATTACK WHEN OUR ESTEEMED PROFESSOR CAN'T EVEN LAND A SINGLE BLOW ON A FIRST-YEAR STUDENT?" (Arthur) |
+| bubble_10 | (panel_25) | 158,31058 | 348x241 | 50,−148 | "F---!" (Geist) |
+| bubble_11 | panel_40 | 21,47477 | 894x366 | −6,−150 | "THAT DOESN'T LOOK LIKE A DEMONSTRATION." / "SHOULD WE GET THE STUDENT COUNCIL?" (students; a strip of the wall art) |
+| bubble_12 | (panel_48) | 68,60290 | 423x260 | 68,627 | "THIS BRAT GOT FASTER!" (Geist) |
+| bubble_13 | (panel_49) | 243,60737 | 440x378 | 243,−265 | "EVEN RATS BECOME DEADLY WHEN CORNERED," (Arthur) |
+| bubble_14 | panel_49 | 458,62850 | 454x415 | 458,1848 | "PROFESSOR." (Arthur) |
+| bubble_15 | (panel_54) | 39,70499 | 388x414 | 39,−285 | "ARTHUR IS PUSHING PROFESSOR GEIST BACK." (spectator) |
+| bubble_16 | panel_56 | 82,72857 | 405x298 | 82,−125 | "ON A TOTALLY DIFFERENT LEVEL." (spectator) |
+| bubble_17 | (panel_59) | 379,77217 | 423x260 | 327,−211 | "IT'S TIME TO END THIS." (Arthur) |
+| bubble_18 | panel_65 | 103,83980 | 404x341 | 103,240 | "YOU THINK THIS IS ENOUGH?!" (Geist) |
+
+Panel 54's "HE'S…" bubble was not detected, so it stays in that panel's character layer.

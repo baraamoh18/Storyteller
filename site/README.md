@@ -1,6 +1,6 @@
 # Scroll site
 
-The scrollytelling page for the duel scene (panels 1–10), built with GSAP and ScrollTrigger.
+The scrollytelling page for the duel scene (panels 1–60), built with GSAP and ScrollTrigger.
 
 ## Look at it
 
@@ -18,9 +18,9 @@ Each panel has:
 | `fit` | `"pan"` fills the width and pans down a tall panel; otherwise the whole panel shows |
 | `camera` | moves the whole panel: `scale`, and `x` / `y` in % of the panel |
 | `bg`, `chars` | move the background and characters separately for depth; `over: [start, end]` squeezes the move into part of the scroll |
-| `bubbles` | speech bubble file, its position and size in the panel's pixels, when it pops in (0–1), and the `voice` line that plays then |
+| `bubbles` | speech bubble file, its position and size in the panel's pixels, and when it pops in (0–1); `pop: false` fades it in where it sits (for lettering drawn on the art). Bubbles are nudged back on screen if they hang off it |
 | `shakes`, `flashes` | moments (0–1) of a camera shake or a flash (with its colour and strength) |
-| `sfx` | sound effects at moments (0–1): `crack`, `whoosh`, `grip`, `flame`, `swish`, `clang` |
+| `sfx` | sound effects at moments (0–1): `crack`, `whoosh`, `grip`, `flame`, `swish`, `clang`, `skid`, `tap`, `thud`, `glint` |
 | `fx` | particles: `ambient` `"dust"`, `"embers"` or `"speed"` in a `tint` (`"paper"`, `"mana"`, `"ember"`) and `amount`, plus impact `bursts` (`"splinters"`, `"sparks"`, `"ring"`, `"flare"`) at a moment, coming `from` a point (% of the panel) |
 | `enter`, `exit` | `"cut"`, `"fade"` or `"zoom"`; a zoom exit dives into `focus` (% of the panel) |
 
@@ -31,12 +31,15 @@ People who prefer reduced motion get the panels as a plain column instead.
 Off until the reader presses **Play with sound** (browsers block sound before a tap).
 
 - **Sound effects** are made in the browser by code, so they need no files. They play as their moment passes while scrolling forward, not when rewinding.
-- **Voices**: `assets/audio/voice_<name>.mp3`, made with `tools/voices/make_voices.py` (Kokoro, free). The music dips while a line plays.
-- **Music**: `assets/audio/fight.mp3`, looped from the panel named in `MUSIC.from` to the end, fading in and out with the scroll.
-  Make one with `tools/music/Make_Fight_Music.ipynb` on Colab, or use any free-to-use track. Until the file is there the page simply has no music.
+- **Music**: the `MUSIC` list under the scene plan. Each track loops over its stretch of panels (`from` to `to`) and crossfades into the next:
+  `assets/audio/academy.mp3` for the calm build-up (panels 1–5), `assets/audio/fight.mp3` from panel 6 to the end.
+  Make them with `tools/music/Make_Duel_Music.ipynb` on Colab, or use any free-to-use instrumental track. A missing file is skipped quietly.
+- **Voices** are switched off for now. `tools/voices/make_voices.py` still makes the lines; the playback code is in the git history
+  (commit `77414a1`) for when they come back.
 
 ## Assets
 
-`assets/` holds the layers from the layer splitter, converted to WebP (about 0.8 MB for all ten panels).
-The bubbles "GOING EASY, HUH?" (panel 13) and "HE'S NOT USING ANY SPELLS…" (panel 19) and their voice lines are ready
-for when those panels are added.
+`assets/` holds the layers from the layer splitter, converted to WebP (about 6 MB for all sixty panels):
+backgrounds at quality 80, characters at 85, bubbles at 90. Each panel's images only load when the reader gets close,
+and its particle canvas only exists while it is on screen, so the long page stays light on phones.
+`bubble_18.webp` (panel 65) is ready for when the last panels come in.
