@@ -173,18 +173,33 @@ class Models:
         with the cuDNN that comes with CUDA 13, and then quietly falls back to the processor.
         So try the other two ways, checking each with a warm-up run.
         """
+        import onnxruntime
+
         session.disable_fallback()  # fail loudly here instead of silently moving to the processor
         for search in ("HEURISTIC", "DEFAULT"):
             try:
                 session.set_providers(["CUDAExecutionProvider", "CPUExecutionProvider"],
-                                      [{"cudnn_conv_algo_search": search}, {}])
+                                      [{"cudnn_conv_algo_search": search, "arena_extend_strategy": "kSameAsRequested"}, {}])
                 warm_up()
                 if "CUDAExecutionProvider" in session.get_providers():
-                    return True
+                    break
             except Exception:
                 pass
-        session.set_providers(["CPUExecutionProvider"])
-        return False
+        else:
+            session.set_providers(["CPUExecutionProvider"])
+            return False
+
+        # By default each session keeps all the graphics memory it ever used, and the three of
+        # them filled a 15 GB T4 before the background fill got any. Hand it back after every run.
+        shrink = onnxruntime.RunOptions()
+        shrink.add_run_config_entry("memory.enable_memory_arena_shrinkage", "gpu:0")
+        run = session.run
+        session.run = lambda output_names, input_feed, run_options=None: run(output_names, input_feed, shrink)
+        try:
+            warm_up()
+        except Exception:  # onnxruntime refuses it when there is no graphics memory pool to shrink
+            del session.run
+        return True
 
     def character_alpha(self, rgb):
         image = Image.fromarray(rgb)
@@ -224,14 +239,26 @@ class Models:
         from simple_lama_inpainting.utils.util import prepare_img_and_mask
 
         h, w = rgb.shape[:2]
-        # big panels are filled at a smaller size to save memory, then scaled back
-        scale = min(1.0, self.max_fill_size / max(h, w))
-        small = (round(w * scale), round(h * scale))
-        image = Image.fromarray(rgb).resize(small, Image.LANCZOS)
-        mask = Image.fromarray(hole_mask.astype(np.uint8) * 255).resize(small, Image.NEAREST)
-        image, mask = prepare_img_and_mask(image, mask, self.device)
-        with torch.inference_mode():
-            result = self.lama(image, mask)[0].permute(1, 2, 0).cpu().numpy()
+        fill_size = min(self.max_fill_size, max(h, w))
+        while True:
+            # big panels are filled at a smaller size to save memory, then scaled back
+            scale = min(1.0, fill_size / max(h, w))
+            small = (round(w * scale), round(h * scale))
+            image = Image.fromarray(rgb).resize(small, Image.LANCZOS)
+            mask = Image.fromarray(hole_mask.astype(np.uint8) * 255).resize(small, Image.NEAREST)
+            image, mask = prepare_img_and_mask(image, mask, self.device)
+            try:
+                with torch.inference_mode():
+                    result = self.lama(image, mask)[0].permute(1, 2, 0).cpu().numpy()
+                break
+            except RuntimeError as error:  # the traced model reports a full graphics card as a plain RuntimeError
+                if "out of memory" not in str(error) or fill_size <= 256:
+                    raise
+                del image, mask
+                torch.cuda.empty_cache()
+                fill_size //= 2
+        if self.device.type == "cuda":
+            torch.cuda.empty_cache()  # leave the graphics memory to the cutout models
         result = np.clip(result * 255, 0, 255).astype(np.uint8)[:small[1], :small[0]]
         result = cv2.resize(result, (w, h), interpolation=cv2.INTER_CUBIC)
         # keep the untouched pixels exactly as drawn
