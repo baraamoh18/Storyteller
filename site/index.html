@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Storyteller Duel Scene</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Archivo+Narrow:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one pinned stage the reader scrubs through like a film strip; a title card above, an end card below.
+   Single dark look on purpose (neo-noir comic): ink black, paper white, one flat red. */
+:root {
+  --ink: #0b0a0d;
+  --ink-2: #17151b;
+  --paper: #f1ece4;
+  --muted: #a39d96;
+  --red: #e5202e;
+  --dot: rgba(241, 236, 228, 0.07);
+  --display: "Bangers", "Impact", "Arial Black", sans-serif;
+  --body: "Archivo Narrow", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: var(--ink); }
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* ---------- title and end cards ---------- */
+.card {
+  min-height: 72vh;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  text-align: left;
+  padding-block: 12vh;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background:
+    radial-gradient(circle, var(--dot) 1.1px, transparent 1.6px) 0 0 / 7px 7px,
+    var(--ink);
+}
+.card > * { max-width: 34rem; margin: 0; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eyebrow b { color: var(--red); font-weight: 500; }
+.headline {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(76px, 17vw, 168px);
+  line-height: 0.86;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+  text-shadow: 6px 6px 0 var(--red);
+}
+.lede { color: var(--muted); max-width: 30rem; }
+.lede strong { color: var(--paper); font-weight: 600; }
+.hint {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hint::after {
+  content: "";
+  width: 2px;
+  height: 34px;
+  background: linear-gradient(var(--red), transparent);
+  animation: drip 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .hint::after { animation: none; } }
+@keyframes drip { 0%, 100% { transform: translateY(-6px); opacity: 0.4; } 50% { transform: translateY(6px); opacity: 1; } }
+
+/* ---------- the stage ---------- */
+#story { position: relative; }
+.viewport {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.75) 100%),
+    radial-gradient(circle, var(--dot) 1.1px, transparent 1.6px) 0 0 / 7px 7px,
+    var(--ink);
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  opacity: 0;
+}
+.scene:first-child { visibility: visible; opacity: 1; }
+.zoom, .shake, .rig { position: relative; will-change: transform; }
+.zoom { width: var(--w); height: var(--h); }
+.shake, .rig { width: 100%; height: 100%; }
+.frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ink-2);
+  outline: 2px solid var(--paper);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
+}
+.frame img, .bubble {
+  position: absolute;
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+}
+.frame img { inset: 0; width: 100%; height: 100%; }
+.bubble { z-index: 2; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45)); }
+.flash {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ---------- heads-up display ---------- */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.progress {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--red);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.counter {
+  position: absolute;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  padding: 6px 10px;
+  background: var(--ink);
+  border: 1px solid rgba(241, 236, 228, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+.counter b { color: var(--red); font-weight: 500; }
+
+/* ---------- reduced motion: the panels as a plain webtoon column ---------- */
+.static .viewport { position: static; height: auto; overflow: visible; display: grid; gap: 48px; padding-block: 48px; justify-items: center; }
+.static .scene { position: relative; inset: auto; visibility: visible; opacity: 1; }
+.static .zoom { width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
+.static .hud, .static .flash { display: none; }
+</style>
+</head>
+<body>
+
+<header class="card">
+  <p class="eyebrow">Storyteller <b>/</b> scroll prototype</p>
+  <h1 class="headline">The Duel</h1>
+  <p class="lede">Ten panels, each split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the scene; scroll back to rewind it.</p>
+  <p class="hint">Scroll</p>
+</header>
+
+<main id="story" aria-label="The duel, ten animated panels">
+  <div class="viewport">
+    <div class="flash"></div>
+    <div class="hud" aria-hidden="true">
+      <div class="progress"></div>
+      <div class="counter">Panel <b class="counter-now">01</b> / <span class="counter-total">10</span></div>
+    </div>
+  </div>
+</main>
+
+<footer class="card">
+  <p class="eyebrow">End of panels 1–10</p>
+  <p class="headline">To be continued</p>
+  <p class="lede">The next panels come in once the rest of the chapter is split into layers.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+/* ======================================================================
+   THE SCENE PLAN: edit this to change the choreography.
+
+   length   how far the reader scrolls through the panel, in screen heights x 100
+   fit      "contain" shows the whole panel; "pan" fills the width and pans down a tall panel
+   camera   moves the whole panel: scale, x / y in % of the panel
+   origin   the point the camera scales around, in % of the panel
+   bg/chars the background and character layers, moved separately for depth
+   bubbles  file, position and size in the panel's own pixels, and when it pops in (0-1)
+   shakes   moments (0-1) of a camera shake; flashes: moments of a flash, with its colour
+   enter / exit   "cut", "fade" or "zoom"; a "zoom" exit dives into `focus` (% of the panel)
+   ====================================================================== */
+const SCENES = [
+  { id: "panel_01", w: 940, h: 375, length: 120, enter: "cut", exit: "fade",
+    camera: { from: { scale: 1.14, y: 3 }, to: { scale: 1 } },
+    chars: { from: { y: 6 }, to: { y: -3, scale: 1.04 } } },
+
+  { id: "panel_02", w: 683, h: 1034, length: 230, enter: "fade", exit: "zoom", focus: [81, 90],
+    camera: { from: { scale: 1.1 }, to: { scale: 1 } },
+    bg: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { scale: 0.94, y: 4 }, to: { scale: 1.06, y: -2 } },
+    bubbles: [{ src: "bubble_very_well", x: 152, y: -74, w: 362, h: 333, at: 0.16 }] },
+
+  { id: "panel_03", w: 756, h: 480, length: 150, enter: "zoom", exit: "fade",
+    camera: { from: { scale: 1 }, to: { scale: 1.1 } },
+    chars: { from: { scale: 1.25 }, to: { scale: 1 }, over: [0.12, 0.32] },
+    shakes: [0.3] },
+
+  { id: "panel_04", w: 700, h: 994, length: 220, enter: "fade", exit: "zoom", focus: [49, 41],
+    camera: { from: { y: -6 }, to: { y: 5 } },
+    bg: { from: { scale: 1.08 }, to: { scale: 1 } },
+    chars: { from: { y: 9 }, to: { y: -5 } } },
+
+  { id: "panel_05", w: 477, h: 692, length: 140, enter: "zoom", exit: "fade",
+    camera: { from: { scale: 1.06 }, to: { scale: 1 } },
+    bg: { from: { y: -3 }, to: { y: 3, scale: 1.04 } },
+    chars: { from: { scale: 1.14 }, to: { scale: 1 }, over: [0.05, 0.25] },
+    shakes: [0.12], flashes: [{ at: 0.1, color: "#f1ece4" }] },
+
+  { id: "panel_06", w: 940, h: 1816, length: 280, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { y: 3 }, to: { y: -3 } },
+    bubbles: [{ src: "bubble_go_easy", x: 535, y: 499, w: 389, h: 323, at: 0.38 }] },
+
+  { id: "panel_07", w: 940, h: 384, length: 120, enter: "fade", exit: "fade",
+    camera: { from: { x: 8 }, to: { x: -4 } },
+    chars: { from: { x: 8 }, to: { x: -8 } } },
+
+  { id: "panel_08", w: 838, h: 747, length: 180, enter: "fade", exit: "fade", origin: [46, 32],
+    camera: { from: { scale: 1 }, to: { scale: 1.22 } },
+    bg: { from: { scale: 1.06 }, to: { scale: 1 } } },
+
+  { id: "panel_09", w: 940, h: 1648, length: 260, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { scale: 0.97 }, to: { scale: 1.04 } },
+    shakes: [0.46], flashes: [{ at: 0.44, color: "#e5202e" }] },
+
+  { id: "panel_10", w: 940, h: 955, length: 240, enter: "fade", exit: "zoom", focus: [80, 45],
+    bg: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { x: 4, scale: 1.06 }, to: { x: 0, scale: 1 } } },
+];
+const ASSETS = "assets/";
+
+/* ====================================================================== */
+
+const stage = document.querySelector(".viewport");
+const flash = document.querySelector(".flash");
+const counterNow = document.querySelector(".counter-now");
+document.querySelector(".counter-total").textContent = String(SCENES.length).padStart(2, "0");
+
+// build the scenes
+SCENES.forEach((s, i) => {
+  const scene = document.createElement("section");
+  scene.className = "scene";
+  scene.setAttribute("aria-label", `Panel ${i + 1}`);
+  scene.style.setProperty("--ratio", `${s.w} / ${s.h}`);
+  const bubbles = (s.bubbles || []).map((b) =>
+    `<img class="bubble" src="${ASSETS}${b.src}.webp" alt="" style="left:${b.x / s.w * 100}%;top:${b.y / s.h * 100}%;width:${b.w / s.w * 100}%">`).join("");
+  scene.innerHTML = `
+    <div class="zoom"><div class="shake"><div class="rig">
+      <div class="frame">
+        <img class="bg" src="${ASSETS}${s.id}_background.webp" alt="">
+        <img class="chars" src="${ASSETS}${s.id}_characters.webp" alt="">
+      </div>${bubbles}
+    </div></div></div>`;
+  stage.insertBefore(scene, flash);
+  s.el = scene;
+  s.parts = {
+    zoom: scene.querySelector(".zoom"), shake: scene.querySelector(".shake"), rig: scene.querySelector(".rig"),
+    bg: scene.querySelector(".bg"), chars: scene.querySelector(".chars"), bubbles: [...scene.querySelectorAll(".bubble")],
+  };
+});
+
+// size every panel to the screen; "pan" panels fill the width and keep their height
+function layout() {
+  const vw = stage.clientWidth, vh = stage.clientHeight;
+  SCENES.forEach((s) => {
+    let scale;
+    if (s.fit === "pan") scale = Math.min(vw * 0.92, 620) / s.w;
+    else scale = Math.min((vw * 0.9) / s.w, (vh * 0.82) / s.h);
+    s.boxW = s.w * scale;
+    s.boxH = s.h * scale;
+    s.travel = Math.max(0, s.boxH - vh * 0.86); // how far a tall panel pans
+    s.parts.zoom.style.setProperty("--w", `${s.boxW}px`);
+    s.parts.zoom.style.setProperty("--h", `${s.boxH}px`);
+  });
+}
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
+  document.documentElement.classList.add("static");
+} else {
+  gsap.registerPlugin(ScrollTrigger);
+  layout();
+  buildTimeline();
+  window.addEventListener("resize", () => { layout(); ScrollTrigger.refresh(); });
+}
+
+function buildTimeline() {
+  const total = SCENES.reduce((sum, s) => sum + s.length, 0);
+  document.getElementById("story").style.height = `calc(${total}vh + 100svh)`;
+
+  const tl = gsap.timeline({ defaults: { ease: "none" } });
+  const starts = [];
+  let t = 0;
+
+  SCENES.forEach((s, i) => {
+    const L = s.length, p = s.parts;
+    starts.push(t);
+    const at = (fraction) => t + fraction * L;
+
+    // where the camera scales around: a zoom-out exit uses its focus, otherwise `origin`
+    const origin = s.origin || [50, 50];
+    gsap.set(p.rig, { transformOrigin: `${origin[0]}% ${origin[1]}%` });
+    if (s.focus) gsap.set(p.zoom, { transformOrigin: `${s.focus[0]}% ${s.focus[1]}%` });
+
+    // enter
+    if (s.enter === "cut" || i === 0) tl.set(s.el, { autoAlpha: 1 }, t);
+    else if (s.enter === "zoom") tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, t - 4)
+                                 .fromTo(p.zoom, { scale: 1.7 }, { scale: 1, duration: 0.16 * L, ease: "power2.out" }, t - 4);
+    else tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12 * L }, t - 6)
+           .fromTo(p.zoom, { scale: 0.92, yPercent: 4 }, { scale: 1, yPercent: 0, duration: 0.14 * L, ease: "power1.out" }, t - 6);
+
+    // camera: panel-wide moves, plus the pan down a tall panel
+    const cam = s.camera || { from: {}, to: {} };
+    const camFrom = { ...toGsap(cam.from) }, camTo = { ...toGsap(cam.to) };
+    if (s.fit === "pan") { camFrom.y = () => s.travel / 2; camTo.y = () => -s.travel / 2; }
+    tl.fromTo(p.rig, camFrom, { ...camTo, duration: L }, t);
+
+    // depth: background and characters move separately
+    for (const layer of ["bg", "chars"]) {
+      if (!s[layer]) continue;
+      const span = s[layer].over || [0, 1];
+      tl.fromTo(p[layer], toGsap(s[layer].from), { ...toGsap(s[layer].to), duration: (span[1] - span[0]) * L,
+        ease: s[layer].over ? "power2.out" : "none" }, at(span[0]));
+    }
+
+    // speech bubbles pop in, then drift up and fade before the panel leaves
+    (s.bubbles || []).forEach((b, k) => {
+      const el = p.bubbles[k];
+      tl.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
+        { scale: 1, rotation: 0, autoAlpha: 1, duration: 0.08 * L, ease: "back.out(2.2)" }, at(b.at));
+      tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(0.8));
+    });
+
+    // impacts
+    (s.shakes || []).forEach((m) => {
+      const d = 0.012 * L;
+      tl.to(p.shake, { keyframes: [{ x: -14, y: 6 }, { x: 12, y: -8 }, { x: -8, y: 4 }, { x: 5, y: -2 }, { x: 0, y: 0 }],
+        duration: 5 * d }, at(m));
+    });
+    (s.flashes || []).forEach((f) => {
+      tl.set(flash, { backgroundColor: f.color }, at(f.at))
+        .fromTo(flash, { opacity: 0 }, { opacity: 0.85, duration: 0.02 * L }, at(f.at))
+        .to(flash, { opacity: 0, duration: 0.07 * L }, at(f.at) + 0.02 * L);
+    });
+
+    // exit
+    const end = t + L;
+    if (i === SCENES.length - 1 || s.exit === "zoom") {
+      if (s.exit === "zoom") {
+        tl.to(p.zoom, { scale: 7, duration: 0.24 * L, ease: "power2.in" }, end - 0.24 * L)
+          .to(s.el, { autoAlpha: 0, duration: 0.07 * L }, end - 0.07 * L);
+      } else {
+        tl.to(s.el, { autoAlpha: 0, duration: 0.12 * L }, end - 0.12 * L);
+      }
+    } else {
+      tl.to(p.zoom, { yPercent: -6, scale: 1.03, duration: 0.12 * L, ease: "power1.in" }, end - 0.12 * L)
+        .to(s.el, { autoAlpha: 0, duration: 0.1 * L }, end - 0.1 * L);
+    }
+    t = end;
+  });
+  tl.set({}, {}, total); // the timeline spans the whole story exactly
+
+  let shown = -1;
+  ScrollTrigger.create({
+    trigger: "#story",
+    start: "top top",
+    end: "bottom bottom",
+    animation: tl,
+    scrub: 0.7,
+    invalidateOnRefresh: true,
+    onUpdate(self) {
+      gsap.set(".progress", { scaleX: self.progress });
+      const now = self.progress * total;
+      let i = starts.findLastIndex((s) => s <= now);
+      if (i < 0) i = 0;
+      if (i !== shown) { shown = i; counterNow.textContent = String(i + 1).padStart(2, "0"); }
+    },
+  });
+}
+
+// scene plan uses % for x / y; GSAP calls those xPercent / yPercent
+function toGsap(v = {}) {
+  const out = {};
+  for (const [k, val] of Object.entries(v)) out[k === "x" ? "xPercent" : k === "y" ? "yPercent" : k] = val;
+  return out;
+}
+</script>
+</body>
+</html>
