@@ -109,8 +109,9 @@ def find_panels(rgb, bubble_mask):
 
 class Models:
     def __init__(self, cutout_models):
-        import onnxruntime
+        # torch first: the GPU build of onnxruntime runs on the CUDA libraries torch loads
         import torch
+        import onnxruntime
         from rembg.sessions import sessions_class
         from simple_lama_inpainting.models.model import LAMA_MODEL_URL
         from simple_lama_inpainting.utils.util import download_model
@@ -126,11 +127,19 @@ class Models:
         unknown = [name for name in cutout_models if name not in by_name]
         if unknown:
             raise SystemExit(f"Unknown cutout model(s): {', '.join(unknown)}")
-        self.cutouts = [by_name[name](name, options) for name in cutout_models]
+        gpu = torch.cuda.is_available() and "CUDAExecutionProvider" in onnxruntime.get_available_providers()
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if gpu else ["CPUExecutionProvider"]
+        self.cutouts = [by_name[name](name, options, providers=providers) for name in cutout_models]
         # Loaded by hand instead of SimpleLama() so it also works without a GPU.
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lama = torch.jit.load(download_model(LAMA_MODEL_URL), map_location=self.device).eval()
         self.max_fill_size = 2048 if self.device.type == "cuda" else 800
+
+        where = lambda on_gpu: "graphics card (fast)" if on_gpu else "processor (slow)"
+        cutouts_on_gpu = "CUDAExecutionProvider" in self.cutouts[0].inner_session.get_providers()
+        print(f"Cutouts run on the {where(cutouts_on_gpu)}, background fill on the {where(self.device.type == 'cuda')}.")
+        if not torch.cuda.is_available():
+            print("No graphics card found. For a much faster run choose Runtime > Change runtime type > T4 GPU.")
 
     def character_alpha(self, rgb):
         from rembg import remove

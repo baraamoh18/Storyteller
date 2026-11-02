@@ -29,6 +29,9 @@ pip install --no-deps simple-lama-inpainting==0.1.2
 python split_layers.py path/to/your/images --out layers
 ```
 
+With an NVIDIA graphics card, swap the processor build for the GPU one to make the cutouts much faster:
+`pip uninstall onnxruntime` then `pip install "rembg[gpu]"`.
+
 If your images are slices of one long webtoon strip (panels cut in two between
 images), add `--join` to stack them back together, in file-name order, before splitting.
 
