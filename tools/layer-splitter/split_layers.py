@@ -3,7 +3,7 @@
 For every image you give it, this script:
   1. finds each panel on the strip (the boxes separated by black or white gutters),
   2. finds the speech bubbles and saves each one as a see-through PNG,
-  3. cuts the characters out of each panel as a see-through PNG,
+  3. cuts the characters out of each panel as a see-through PNG, with clean edges,
   4. paints over the holes the characters and bubbles leave, so the panel
      background looks complete when the layers move apart on scroll.
 
@@ -134,6 +134,11 @@ class Models:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lama = torch.jit.load(download_model(LAMA_MODEL_URL), map_location=self.device).eval()
         self.max_fill_size = 2048 if self.device.type == "cuda" else 800
+        try:  # edge refinement arrived in rembg 2.0.8x; older versions just skip it
+            from rembg.matting import vitmatte_alpha
+            self.refine_edges = vitmatte_alpha
+        except ImportError:
+            self.refine_edges = None
 
         where = lambda on_gpu: "graphics card (fast)" if on_gpu else "processor (slow)"
         cutouts_on_gpu = "CUDAExecutionProvider" in self.cutouts[0].inner_session.get_providers()
@@ -142,13 +147,33 @@ class Models:
             print("No graphics card found. For a much faster run choose Runtime > Change runtime type > T4 GPU.")
 
     def character_alpha(self, rgb):
-        from rembg import remove
-
-        # each model misses different bits (a hand here, a sword there),
-        # so keep anything that any of them sees as part of a character
         image = Image.fromarray(rgb)
-        masks = [np.array(remove(image, session=s, only_mask=True).convert("L")) for s in self.cutouts]
-        return np.maximum.reduce(masks)
+        mirrored = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        masks = []
+        for session in self.cutouts:
+            # averaging with the mirrored panel drops glows and auras only one view mistakes for a character
+            plain = np.asarray(session.predict(image)[0], np.float32)
+            flipped = np.asarray(session.predict(mirrored)[0], np.float32)[:, ::-1]
+            masks.append((plain + flipped) / 2)
+        # each model misses different bits (a hand here, an outline there),
+        # so keep anything that any of them sees as part of a character
+        alpha = np.maximum.reduce(masks).astype(np.uint8)
+        if self.refine_edges:
+            # ViTMatte redraws the soft edge band: crisper hair, no see-through ghost patches
+            alpha = np.asarray(self.refine_edges(image, Image.fromarray(alpha)))
+            # its output tops out at 254; make the solid inside fully solid again
+            alpha = np.where(alpha >= 250, 255, alpha).astype(np.uint8)
+        return alpha.copy()
+
+    @staticmethod
+    def character_colours(rgb, alpha):
+        from pymatting import estimate_foreground_ml
+
+        # on soft edges the drawn colour is mixed with the background behind it;
+        # unmix it so the character carries no fringe of the old background
+        foreground = estimate_foreground_ml(rgb / 255.0, alpha / 255.0)
+        foreground = np.clip(foreground * 255 + 0.5, 0, 255).astype(np.uint8)
+        return np.where(alpha[..., None] == 255, rgb, foreground)
 
     def fill_background(self, rgb, hole_mask):
         if not hole_mask.any():
@@ -231,7 +256,7 @@ def split_image(name, source, rgb, out_root, models):
 
         Image.fromarray(crop).save(folder / "original.png")
         Image.fromarray(background).save(folder / "background.png")
-        save_rgba(folder / "characters.png", crop, alpha)
+        save_rgba(folder / "characters.png", models.character_colours(crop, alpha), alpha)
 
         info["panels"].append({
             "id": name, "x": int(x), "y": int(y), "width": int(pw), "height": int(ph),
@@ -276,7 +301,9 @@ def main():
     parser.add_argument("--join", action="store_true",
                         help="stack all images into one long strip first (for webtoon slices "
                              "where panels are cut in two between images)")
-    parser.add_argument("--models", default="birefnet-general,birefnet-general-lite",
+    # Picked by comparing all of rembg's models on real webtoon panels: general is the most
+    # reliable, hrsod adds missed edges only, while lite and massive grab chunks of background.
+    parser.add_argument("--models", default="birefnet-general,birefnet-hrsod",
                         help="comma-separated cutout models to combine (default: %(default)s); "
                              "use just birefnet-general-lite for a quick, rougher run")
     args = parser.parse_args()
