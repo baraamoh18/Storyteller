@@ -135,8 +135,8 @@ class Models:
         unknown = [name for name in cutout_models if name not in by_name]
         if unknown:
             raise SystemExit(f"Unknown cutout model(s): {', '.join(unknown)}")
-        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if gpu else ["CPUExecutionProvider"]
-        self.cutouts = [by_name[name](name, options, providers=providers) for name in cutout_models]
+        # made on the processor, then moved to the graphics card below once they are known to run there
+        self.cutouts = [by_name[name](name, options, providers=["CPUExecutionProvider"]) for name in cutout_models]
         # Loaded by hand instead of SimpleLama() so it also works without a GPU.
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.lama = torch.jit.load(download_model(LAMA_MODEL_URL), map_location=self.device).eval()
@@ -147,11 +147,44 @@ class Models:
         except ImportError:
             self.refine_edges = None
 
+        noise = Image.fromarray(np.random.default_rng(0).integers(0, 256, (64, 64, 3), np.uint8))
+        cutouts_on_gpu = gpu and all([self._move_to_gpu(c.inner_session, lambda c=c: c.predict(noise))
+                                      for c in self.cutouts])
+        if cutouts_on_gpu and self.refine_edges:
+            try:  # rembg keeps its ViTMatte session to itself; it trips over the same problem
+                from rembg import matting
+                self._move_to_gpu(matting._get_session(matting.DEFAULT_VARIANT),
+                                  lambda: self.refine_edges(noise, noise.convert("L")))
+            except Exception:
+                pass
+
         where = lambda on_gpu: "graphics card (fast)" if on_gpu else "processor (slow)"
-        cutouts_on_gpu = "CUDAExecutionProvider" in self.cutouts[0].inner_session.get_providers()
         print(f"Cutouts run on the {where(cutouts_on_gpu)}, background fill on the {where(self.device.type == 'cuda')}.")
         if not torch.cuda.is_available():
             print("No graphics card found. For a much faster run choose Runtime > Change runtime type > T4 GPU.")
+        elif not cutouts_on_gpu:
+            print("The cutout models could not use this graphics card. Try Runtime > Change runtime type > L4 GPU.")
+
+    @staticmethod
+    def _move_to_gpu(session, warm_up):
+        """Run an onnxruntime session on the graphics card if it works there; say whether it does.
+
+        onnxruntime's default way of picking convolution algorithms (EXHAUSTIVE) fails on a T4
+        with the cuDNN that comes with CUDA 13, and then quietly falls back to the processor.
+        So try the other two ways, checking each with a warm-up run.
+        """
+        session.disable_fallback()  # fail loudly here instead of silently moving to the processor
+        for search in ("HEURISTIC", "DEFAULT"):
+            try:
+                session.set_providers(["CUDAExecutionProvider", "CPUExecutionProvider"],
+                                      [{"cudnn_conv_algo_search": search}, {}])
+                warm_up()
+                if "CUDAExecutionProvider" in session.get_providers():
+                    return True
+            except Exception:
+                pass
+        session.set_providers(["CPUExecutionProvider"])
+        return False
 
     def character_alpha(self, rgb):
         image = Image.fromarray(rgb)
