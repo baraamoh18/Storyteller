@@ -3,7 +3,9 @@
 > **Status (last updated 2026-11-02, second session):** Stage 1 (splitting the chapter into layers) is done and runs fast on Colab's T4 GPU.
 > Stages 2 and 3 are working for **panels 1–60**: a scroll site with parallax, zoom-through cuts, particles, sword sound effects and all speech bubbles.
 > **Voices are switched off** at the user's request ("needs more adjustments").
-> **Music is in:** five MusicGen loops crossfade by story section (Section 7). **Waiting on the user:** listen and ask for swaps; send panels 61–65.
+> **Music is in:** five MusicGen loops crossfade by story section (Section 7).
+> **Now automating the whole series** (Section 12): step 1 (the site is a multi-chapter reader with per-chapter data files) is done.
+> **Waiting on the user:** the cast list (`series/cast.md`), chapters as CBZ files, panels 61–65, the duel chapter's number.
 > Read **Section 9: Next steps** and **Section 10: Instructions for the next AI session** first.
 
 ---
@@ -46,14 +48,15 @@ tools/voices/
   .gitignore                       model files and out/ are not committed
 tools/music/
   Make_Duel_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
+series/cast.md                     the cast list (the user fills it in; Arthur and Geist filled as examples)
 site/
-  index.html                       the whole scroll site (CSS + JS in one file; GSAP from cdnjs)
-  README.md                        how to edit the scene plan, sound, assets
-  assets/panel_XX_background.webp, panel_XX_characters.webp   panels 1-60 (WebP, ~6 MB total)
-  assets/bubble_*.webp             very_well, go_easy, going_easy_huh, not_using_spells (bubbles 01-04), bubble_07 ... bubble_18
-  assets/audio/academy_dark.mp3, fight_orchestral_1.mp3, fight_dark.mp3, fight_orchestral_2.mp3, fight_choir.mp3   the music loops (~1.8 MB)
+  index.html                       the reader: chapter menu + engine (CSS + JS in one file; GSAP from cdnjs); no chapter data
+  series.js                        series title, playlist link, chapter list (reading order), music themes and their takes
+  chapters/duel/chapter.js         the duel's scene plan (60 panels) and music zones; calls registerChapter({...})
+  chapters/duel/*.webp             its layers: panel_XX_background/characters, bubble_very_well/go_easy/going_easy_huh/not_using_spells, bubble_07..18
+  music/<theme>_<n>.mp3            calm_1, tension_1, battle_1, battle_2, battle_dark_1, battle_dark_2, climax_1, climax_2 (~2.8 MB)
+  README.md                        layout, how to add a chapter, the scene plan settings, music themes
 tools/music/make_loop.py           rebuilds a MusicGen take as a seamless, beat-aligned, evenly loud loop
-tools/music/takes/                 spare rebuilt loops: academy_harp, fight_choir_B, fight_hybrid
 ```
 
 Commits on the branch, oldest first:
@@ -221,13 +224,17 @@ Story beats, so later choreography stays consistent. The swordsman is **Professo
 fading in over 40 units around the start of its stretch and out over 60 around the end, so neighbouring tracks crossfade.
 The first track is already up at the top of the page; the last fades out by the end card. The page skips silent MP3 padding at either end of a loop (`loopStart`/`loopEnd`).
 
-| Panels | Story | File | Source take | Volume |
+Since the reader restructure, chapters name **themes**, not files: `music: [{ theme, from, to }]` in chapter.js, resolved through
+`SERIES.themes` in series.js. A theme used twice in a chapter plays its next take (`take: n` overrides).
+
+| Panels (duel) | Story | Theme → file | Source take | Volume |
 |---|---|---|---|---|
-| 1–5 | build-up | `academy_dark.mp3` | run 2 `academy_dark` | 0.40 |
-| 6–22 | first exchange | `fight_orchestral_1.mp3` | run 1 `fight_orchestral` | 0.53 |
-| 23–39 | leaping slash, flame pillar | `fight_dark.mp3` | run 2 `fight_dark` (last 1 s of silence dropped) | 0.58 |
-| 40–48 | the stands, counterattack | `fight_orchestral_2.mp3` | run 2 `fight_orchestral` | 0.63 |
-| 49–60 | "Professor." to the clash | `fight_choir.mp3` | run 1 `fight_choir` | 0.75 |
+| 1–5 | build-up | `tension` → `tension_1.mp3` | run 2 `academy_dark` | 0.40 |
+| 6–22 | first exchange | `battle` → `battle_1.mp3` | run 1 `fight_orchestral` | 0.53 |
+| 23–39 | leaping slash, flame pillar | `battle_dark` → `battle_dark_1.mp3` | run 2 `fight_dark` (last 1 s of silence dropped) | 0.58 |
+| 40–48 | the stands, counterattack | `battle` (2nd use) → `battle_2.mp3` | run 2 `fight_orchestral` | 0.63 |
+| 49–60 | "Professor." to the clash | `climax` → `climax_1.mp3` | run 1 `fight_choir` | 0.75 |
+| (unused yet) | | `calm_1` (run 1 `academy_harp`, 0.5), `battle_dark_2` (run 1 `fight_hybrid`, 0.5), `climax_2` (run 2 `fight_choir`, 0.56) | | |
 
 The user ran the notebook twice (run 1 with the older 5-prompt version: academy_strings, academy_harp, fight_orchestral, fight_choir, fight_hybrid;
 run 2 with the 6-prompt version). Chosen by measurement, not by ear (the AI cannot listen): steady loudness, a steady beat, no dropouts.
@@ -287,7 +294,7 @@ There is no official per-chapter soundtrack for this webtoon.
 ---
 
 ## 9. Next steps
-1. **Music:** in. If the user wants a different track somewhere, swap in a spare from `tools/music/takes/` or a new take run through `make_loop.py`, then match its volume.
+1. **Automation, steps 2–5** (Section 12).
 2. **Panels 61–65:** not sent yet. Convert (backgrounds q80, characters q85, `method=6`) and extend `SCENES`; `bubble_18` ("You think this is enough?!", panel 65 at 103,240) is already in `assets/`. Then end on a final beat and update the footer card.
 3. **Voices (later):** the user wants adjustments before they come back. All bubble texts are now known (Section 11), so more lines can be made.
 4. **Nice-to-haves:**
@@ -372,3 +379,30 @@ Bubbles ("in panel" = position relative to that panel's top-left corner, the num
 | bubble_18 | panel_65 | 103,83980 | 404x341 | 103,240 | "YOU THINK THIS IS ENOUGH?!" (Geist) |
 
 Panel 54's "HE'S…" bubble was not detected, so it stays in that panel's character layer.
+
+---
+
+## 12. Automating the whole series (agreed with the user, second session)
+
+**The user's decisions:** every chapter is **approved by the user** before it joins the reader; **free and budget-friendly** (no paid API:
+the AI in a Claude Code session is the "director", following a written playbook; GPU work stays on Colab); the **whole series** with a
+chapter menu; the user writes a **cast list**; **music by theme** (a few standard themes reused across chapters); **voices stay off**.
+Chapter images come from files the user already has (CBZ from their downloader); the AI does not build a scraper for manhwa sites.
+
+**Downloader settings given to the user:** a dedicated folder, Skip existing on, **CBZ**, pack as **Chapters**, convert AVIF to JPEG on,
+WebP off, compress off, skip pages empty (non-story pages are flagged per chapter), JPEG quality 90+.
+
+**Per chapter, once built:** user runs one Colab notebook on a CBZ (split + WebP conversion, so the upload is ~6 MB and complete) →
+AI session directs it (reads panels/bubbles with the cast list, writes `chapter.js`, tags music themes) and sends a preview → user
+approves or leaves notes → chapter added to `series.js`.
+
+**Build order:**
+1. ✅ Scene plan out of `index.html` into `chapters/<id>/chapter.js`; `series.js`; chapter menu; music themes. Tested with Playwright:
+   same panels and music as before; menu switching, a missing chapter and an unknown `#hash` all behave.
+2. `Make_Chapter` Colab notebook: CBZ in → `chapter_<id>.zip` out (WebP layers, bubbles, layers.json, contact sheets for the director).
+3. The director playbook (a skill in the repo) + cast list.
+4. Music theme library: add `sad`, `eerie`, `triumph` (and second takes) via the music notebook + `make_loop.py`.
+5. A start file to read the whole series on the user's PC (local server; music needs it, file:// blocks fetch).
+
+**Hosting limit:** an artifact version holds at most 511 files (and 255 per publish); a chapter is ~140 files, so the private preview
+fits about 3 chapters. Plan: per-chapter previews for approval; the full series reader runs locally from `D:\Work\StoryTelling website`.

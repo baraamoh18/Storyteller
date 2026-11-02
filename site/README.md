@@ -1,15 +1,31 @@
-# Scroll site
+# Scroll site: the series reader
 
-The scrollytelling page for the duel scene (panels 1–60), built with GSAP and ScrollTrigger.
+A scrollytelling reader for *The Beginning After the End*, built with GSAP and ScrollTrigger.
+The page shows a chapter menu on its title card; each chapter plays as one long scroll-scrubbed scene.
 
 ## Look at it
 
-Double-click `index.html`. It needs an internet connection for GSAP and the fonts.
-If your browser blocks the images when opened as a file, run `python -m http.server` in this folder and open <http://localhost:8000>.
+Open `index.html` through a local web server: run `python -m http.server` in this folder and open <http://localhost:8000>.
+(Double-clicking the file shows the panels, but browsers block the music when a page is opened as a file.)
+It needs an internet connection for GSAP and the fonts. `index.html#duel` opens the chapter with the id `duel`.
 
-## Change the choreography
+## Layout
 
-Everything the camera does is in the `SCENES` list near the top of the `<script>` in `index.html`.
+```
+index.html                 the reader: chapter menu, stage, particles, sound (no chapter data in here)
+series.js                  the series: title, chapter list in reading order, music themes
+chapters/<id>/chapter.js   one chapter's scene plan and music
+chapters/<id>/*.webp       its layers: panel_XX_background, panel_XX_characters, bubble_*
+music/<theme>_<n>.mp3      the shared music library: seamless loops, made with tools/music/
+```
+
+## Add a chapter
+
+1. Put its folder in `chapters/<id>/`: the WebP layers plus a `chapter.js` that calls `registerChapter({ id, title, number, music, scenes })`.
+2. Add a line to `chapters` in `series.js`: `{ id, title, number, panels }`.
+
+## The scene plan (`scenes` in chapter.js)
+
 Each panel has:
 
 | Setting | What it does |
@@ -24,23 +40,33 @@ Each panel has:
 | `fx` | particles: `ambient` `"dust"`, `"embers"` or `"speed"` in a `tint` (`"paper"`, `"mana"`, `"ember"`) and `amount`, plus impact `bursts` (`"splinters"`, `"sparks"`, `"ring"`, `"flare"`) at a moment, coming `from` a point (% of the panel) |
 | `enter`, `exit` | `"cut"`, `"fade"` or `"zoom"`; a zoom exit dives into `focus` (% of the panel) |
 
-People who prefer reduced motion get the panels as a plain column instead.
+## Music
+
+A chapter's `music` list names a **theme** for each stretch of panels: `{ theme: "battle", from: "panel_06", to: "panel_22" }`
+(leave `to` out on the last one). The themes and their takes live in `series.js` under `themes`; each take is a seamless loop
+in `music/` with a `volume` that evens out loudness. When a chapter uses a theme a second time, it plays the theme's next take;
+`take: 0` picks one by hand. Neighbouring stretches crossfade.
+
+| Theme | Takes | Sound |
+| --- | --- | --- |
+| `calm` | 1 | gentle harp and flute |
+| `tension` | 1 | music box over a slow beat |
+| `battle` | 2 | driving orchestra |
+| `battle_dark` | 2 | heavy bass, trap drums |
+| `climax` | 2 | war drums and choir |
+
+Planned: `sad`, `eerie`, `triumph`. Make takes with `tools/music/Make_Duel_Music.ipynb`, then loop them with `tools/music/make_loop.py`.
 
 ## Sound
 
 Off until the reader presses **Play with sound** (browsers block sound before a tap).
+Sound effects are made in the browser by code, so they need no files. They play as their moment passes while scrolling forward, not when rewinding.
+Voices are switched off for now; `tools/voices/make_voices.py` still makes the lines, and the playback code is in the git history (commit `77414a1`).
 
-- **Sound effects** are made in the browser by code, so they need no files. They play as their moment passes while scrolling forward, not when rewinding.
-- **Music**: the `MUSIC` list under the scene plan. Each track loops over its stretch of panels (`from` to `to`) and crossfades into the next:
-  `academy_dark` (panels 1–5), `fight_orchestral_1` (6–22), `fight_dark` (23–39), `fight_orchestral_2` (40–48), `fight_choir` (49 on),
-  all in `assets/audio/`. They were made with `tools/music/Make_Duel_Music.ipynb` and turned into seamless, evenly loud loops with
-  `tools/music/make_loop.py`; spare takes are in `tools/music/takes/`. A missing file is skipped quietly.
-- **Voices** are switched off for now. `tools/voices/make_voices.py` still makes the lines; the playback code is in the git history
-  (commit `77414a1`) for when they come back.
+People who prefer reduced motion get the panels as a plain column instead.
 
 ## Assets
 
-`assets/` holds the layers from the layer splitter, converted to WebP (about 6 MB for all sixty panels):
-backgrounds at quality 80, characters at 85, bubbles at 90. Each panel's images only load when the reader gets close,
-and its particle canvas only exists while it is on screen, so the long page stays light on phones.
-`bubble_18.webp` (panel 65) is ready for when the last panels come in.
+Backgrounds are WebP at quality 80, characters at 85, bubbles at 90 (`method=6`), about 6 MB per chapter.
+Each panel's images only load when the reader gets close, and its particle canvas only exists while it is on screen.
+`chapters/duel/bubble_18.webp` (panel 65) is ready for when the last panels of that chapter come in.
