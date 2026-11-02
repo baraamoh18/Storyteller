@@ -201,13 +201,17 @@ body {
   right: max(16px, env(safe-area-inset-right, 0px));
   pointer-events: auto;
 }
-.card .sound { justify-self: start; padding: 12px 18px; font-size: 13px; }
+.card .sound { padding: 12px 18px; font-size: 13px; }
+/* the title card's two buttons: sound, and the fans' reading playlist on Spotify (opens in a new tab) */
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.playlist { text-decoration: none; }
+.playlist .arrow { color: var(--red); }
 
 /* ---------- reduced motion: the panels as a plain webtoon column ---------- */
 .static .viewport { position: static; height: auto; overflow: visible; display: grid; gap: 48px; padding-block: 48px; justify-items: center; }
 .static .scene { position: relative; inset: auto; visibility: visible; opacity: 1; }
 .static .zoom { position: relative; left: auto; top: auto; margin: 0; width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
-.static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static .sound { display: none; }
+.static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static .sound:not(.playlist) { display: none; }
 </style>
 </head>
 <body>
@@ -216,7 +220,10 @@ body {
   <p class="eyebrow">Storyteller <b>/</b> scroll prototype</p>
   <h1 class="headline">The Duel</h1>
   <p class="lede">Sixty panels, each split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the scene; scroll back to rewind it. Turn the sound on for the music and the sword effects.</p>
-  <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
+  <div class="actions">
+    <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
+    <a class="sound playlist" href="https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe" target="_blank" rel="noopener">Reading playlist <span class="arrow" aria-hidden="true">↗</span></a>
+  </div>
   <p class="hint">Scroll</p>
 </header>
 

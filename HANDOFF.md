@@ -45,7 +45,7 @@ tools/voices/
   make_voices.py                   makes the voice lines with Kokoro (kokoro-onnx), runs on a normal CPU
   .gitignore                       model files and out/ are not committed
 tools/music/
-  Make_Duel_Music.ipynb            Colab notebook: 2 academy + 3 fight looping 30 s tracks with MusicGen -> duel_music.zip
+  Make_Duel_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
 site/
   index.html                       the whole scroll site (CSS + JS in one file; GSAP from cdnjs)
   README.md                        how to edit the scene plan, sound, assets
@@ -220,6 +220,11 @@ fading in over 40 units around the start of its stretch and out over 60 around t
 The first track is already up at the top of the page; the last fades out by the end card. Now: `academy.mp3` panels 1–5 (0.4), `fight.mp3` panel 6 on (0.5).
 The user's taste in music for TBATE (their notes): Academy arc = warm acoustic / light fantasy / gentle piano; fights = heavy cinematic orchestral
 (Attack on Titan / Solo Leveling style), percussion and choir for desperate turns; Relictombs = dark synthwave / post-rock. **Instrumental only.**
+**Fans' reading playlist** (Spotify, https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe, 52 tracks; Spotify is blocked here and its audio
+cannot be downloaded, so the title card links to it with a "Reading playlist ↗" button instead). It is dark electronic / trap alt-pop with vocals:
+Egzod, Silent Child, UNDREAM, PatrickReza, Mickey Valen, NUVILICES (music-box piano), Adam Jensen, Confetti, Layto, Paper Idol, One Hope.
+The notebook's `academy_dark`, `fight_dark` and `fight_dark_epic` prompts imitate that sound as instrumentals; `academy_strings`, `fight_orchestral`
+and `fight_choir` follow the orchestral notes above. If the user sends tracks they own as files, trim and loop them into `academy.mp3` / `fight.mp3`.
 A long fight on one 30 s loop repeats a lot: a second fight zone (e.g. panels 40–60, starting at the stands) is an easy upgrade once there are two good fight takes.
 
 ### Voices (OFF for now: the user wants more adjustments first)
@@ -250,7 +255,7 @@ The user was sent the candidate takes (`<line>__<who>_<A|B|C>.mp3`) and has **no
 
 ### Music (not done)
 The user wants **both**:
-1. **AI-generated:** `tools/music/Make_Duel_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes five tracks (`academy_strings`, `academy_harp`, `fight_orchestral`, `fight_choir`, `fight_hybrid`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
+1. **AI-generated:** `tools/music/Make_Duel_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes six tracks (`academy_strings`, `academy_dark`, `fight_orchestral`, `fight_choir`, `fight_dark`, `fight_dark_epic`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
 2. **Free to use:** the user downloads a track, e.g. from Pixabay Music ("epic battle", "anime fight") or the YouTube Audio Library (Cinematic, dramatic). The AI then trims or loops it into `site/assets/audio/fight.mp3`.
 
 There is no official per-chapter soundtrack for this webtoon.
