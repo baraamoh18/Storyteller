@@ -32,8 +32,9 @@ Off until the reader presses **Play with sound** (browsers block sound before a 
 
 - **Sound effects** are made in the browser by code, so they need no files. They play as their moment passes while scrolling forward, not when rewinding.
 - **Music**: the `MUSIC` list under the scene plan. Each track loops over its stretch of panels (`from` to `to`) and crossfades into the next:
-  `assets/audio/academy.mp3` for the calm build-up (panels 1–5), `assets/audio/fight.mp3` from panel 6 to the end.
-  Make them with `tools/music/Make_Duel_Music.ipynb` on Colab, or use any free-to-use instrumental track. A missing file is skipped quietly.
+  `academy_dark` (panels 1–5), `fight_orchestral_1` (6–22), `fight_dark` (23–39), `fight_orchestral_2` (40–48), `fight_choir` (49 on),
+  all in `assets/audio/`. They were made with `tools/music/Make_Duel_Music.ipynb` and turned into seamless, evenly loud loops with
+  `tools/music/make_loop.py`; spare takes are in `tools/music/takes/`. A missing file is skipped quietly.
 - **Voices** are switched off for now. `tools/voices/make_voices.py` still makes the lines; the playback code is in the git history
   (commit `77414a1`) for when they come back.
 

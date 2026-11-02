@@ -605,11 +605,15 @@ const SCENES = [
     fx: { ambient: "embers", tint: "mana", amount: 0.9, bursts: [{ type: "sparks", at: 0.2, from: [76, 42] }] } },
 ];
 const ASSETS = "assets/";
-// the music: each track loops while its panels are on screen and crossfades into the next one.
-// `to` is the last panel it plays on (leave it out to play to the end). Missing files are skipped quietly.
+// the music (made with tools/music/Make_Duel_Music.ipynb): each track loops while its panels are on screen
+// and crossfades into the next one. `to` is the last panel it plays on (leave it out to play to the end).
+// Volumes even out the tracks' loudness. Missing files are skipped quietly.
 const MUSIC = [
-  { src: "audio/academy.mp3", from: "panel_01", to: "panel_05", volume: 0.4 },
-  { src: "audio/fight.mp3", from: "panel_06", volume: 0.5 },
+  { src: "audio/academy_dark.mp3", from: "panel_01", to: "panel_05", volume: 0.4 },       // the build-up: music box, slow beat
+  { src: "audio/fight_orchestral_1.mp3", from: "panel_06", to: "panel_22", volume: 0.53 }, // "BURN": the first exchange
+  { src: "audio/fight_dark.mp3", from: "panel_23", to: "panel_39", volume: 0.58 },        // the leaping slash, the flame pillar
+  { src: "audio/fight_orchestral_2.mp3", from: "panel_40", to: "panel_48", volume: 0.63 }, // the stands, the counterattack
+  { src: "audio/fight_choir.mp3", from: "panel_49", volume: 0.75 },                       // "Professor." to the final clash
 ];
 
 /* ====================================================================== */
@@ -1084,8 +1088,15 @@ function makeSound() {
       gain.gain.value = 0;
       src.buffer = buffer;
       src.loop = true;
+      // some browsers keep the MP3 encoder's few ms of silence at each end; loop past it so there is no click
+      const d = buffer.getChannelData(0), edge = Math.min(d.length >> 1, 4096);
+      let a = 0, z = d.length - 1;
+      while (a < edge && Math.abs(d[a]) < 1e-3) a++;
+      while (z > d.length - edge && Math.abs(d[z]) < 1e-3) z--;
+      src.loopStart = a / buffer.sampleRate;
+      src.loopEnd = (z + 1) / buffer.sampleRate;
       src.connect(gain).connect(limiter);
-      src.start();
+      src.start(0, src.loopStart);
       tracks.push({ gain, span: span(m), volume: m.volume ?? 0.5, level: -1 });
     }));
   }

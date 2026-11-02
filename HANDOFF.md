@@ -3,7 +3,7 @@
 > **Status (last updated 2026-11-02, second session):** Stage 1 (splitting the chapter into layers) is done and runs fast on Colab's T4 GPU.
 > Stages 2 and 3 are working for **panels 1–60**: a scroll site with parallax, zoom-through cuts, particles, sword sound effects and all speech bubbles.
 > **Voices are switched off** at the user's request ("needs more adjustments").
-> **Waiting on the user:** run `tools/music/Make_Duel_Music.ipynb` (or send free tracks) and pick an academy and a fight track; send panels 61–65.
+> **Music is in:** five MusicGen loops crossfade by story section (Section 7). **Waiting on the user:** listen and ask for swaps; send panels 61–65.
 > Read **Section 9: Next steps** and **Section 10: Instructions for the next AI session** first.
 
 ---
@@ -51,7 +51,9 @@ site/
   README.md                        how to edit the scene plan, sound, assets
   assets/panel_XX_background.webp, panel_XX_characters.webp   panels 1-60 (WebP, ~6 MB total)
   assets/bubble_*.webp             very_well, go_easy, going_easy_huh, not_using_spells (bubbles 01-04), bubble_07 ... bubble_18
-  assets/audio/academy.mp3, fight.mp3   NOT THERE YET: the page plays no music until they exist (the folder does not exist either)
+  assets/audio/academy_dark.mp3, fight_orchestral_1.mp3, fight_dark.mp3, fight_orchestral_2.mp3, fight_choir.mp3   the music loops (~1.8 MB)
+tools/music/make_loop.py           rebuilds a MusicGen take as a seamless, beat-aligned, evenly loud loop
+tools/music/takes/                 spare rebuilt loops: academy_harp, fight_choir_B, fight_hybrid
 ```
 
 Commits on the branch, oldest first:
@@ -217,7 +219,22 @@ Story beats, so later choreography stays consistent. The swordsman is **Professo
 ### Music zones (site)
 `MUSIC` in `index.html` is a list: `{ src, from, to, volume }`. Each loaded track loops all the time; its gain follows the scroll,
 fading in over 40 units around the start of its stretch and out over 60 around the end, so neighbouring tracks crossfade.
-The first track is already up at the top of the page; the last fades out by the end card. Now: `academy.mp3` panels 1–5 (0.4), `fight.mp3` panel 6 on (0.5).
+The first track is already up at the top of the page; the last fades out by the end card. The page skips silent MP3 padding at either end of a loop (`loopStart`/`loopEnd`).
+
+| Panels | Story | File | Source take | Volume |
+|---|---|---|---|---|
+| 1–5 | build-up | `academy_dark.mp3` | run 2 `academy_dark` | 0.40 |
+| 6–22 | first exchange | `fight_orchestral_1.mp3` | run 1 `fight_orchestral` | 0.53 |
+| 23–39 | leaping slash, flame pillar | `fight_dark.mp3` | run 2 `fight_dark` (last 1 s of silence dropped) | 0.58 |
+| 40–48 | the stands, counterattack | `fight_orchestral_2.mp3` | run 2 `fight_orchestral` | 0.63 |
+| 49–60 | "Professor." to the clash | `fight_choir.mp3` | run 1 `fight_choir` | 0.75 |
+
+The user ran the notebook twice (run 1 with the older 5-prompt version: academy_strings, academy_harp, fight_orchestral, fight_choir, fight_hybrid;
+run 2 with the 6-prompt version). Chosen by measurement, not by ear (the AI cannot listen): steady loudness, a steady beat, no dropouts.
+Rejected: `fight_dark_epic` (two long quiet breakdowns), `academy_strings` (abrupt section jumps; identical in both runs).
+The notebook's old `loudnorm` step varied the volume over time and broke every loop seam; it now applies one fixed gain, and `make_loop.py`
+rebuilds the loop anyway (skips the first 1.6 s, drops a dead tail, beat-aligned 1 s equal-power crossfade, fixed gain to about −16 LUFS).
+Volumes in `MUSIC` make up for tracks that came out quieter because of the peak limit.
 The user's taste in music for TBATE (their notes): Academy arc = warm acoustic / light fantasy / gentle piano; fights = heavy cinematic orchestral
 (Attack on Titan / Solo Leveling style), percussion and choir for desperate turns; Relictombs = dark synthwave / post-rock. **Instrumental only.**
 **Fans' reading playlist** (Spotify, https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe, 52 tracks; Spotify is blocked here and its audio
@@ -270,7 +287,7 @@ There is no official per-chapter soundtrack for this webtoon.
 ---
 
 ## 9. Next steps
-1. **Music:** the user runs `Make_Duel_Music.ipynb` and/or sends free tracks. Pick one academy and one fight take, convert to `site/assets/audio/academy.mp3` and `fight.mp3` (mono or stereo MP3, ~128 kbps), check the loop point, adjust the volumes in `MUSIC`, then republish.
+1. **Music:** in. If the user wants a different track somewhere, swap in a spare from `tools/music/takes/` or a new take run through `make_loop.py`, then match its volume.
 2. **Panels 61–65:** not sent yet. Convert (backgrounds q80, characters q85, `method=6`) and extend `SCENES`; `bubble_18` ("You think this is enough?!", panel 65 at 103,240) is already in `assets/`. Then end on a final beat and update the footer card.
 3. **Voices (later):** the user wants adjustments before they come back. All bubble texts are now known (Section 11), so more lines can be made.
 4. **Nice-to-haves:**
