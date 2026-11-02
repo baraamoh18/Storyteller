@@ -1,0 +1,4 @@
+# the Kokoro model files are downloaded, not committed
+kokoro-v1.0.onnx
+voices-v1.0.bin
+out/

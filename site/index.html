@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Storyteller Duel Scene</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Archivo+Narrow:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one pinned stage the reader scrubs through like a film strip; a title card above, an end card below.
+   Single dark look on purpose (neo-noir comic): ink black, paper white, one flat red. */
+:root {
+  --ink: #0b0a0d;
+  --ink-2: #17151b;
+  --paper: #f1ece4;
+  --muted: #a39d96;
+  --red: #e5202e;
+  --dot: rgba(241, 236, 228, 0.07);
+  --display: "Bangers", "Impact", "Arial Black", sans-serif;
+  --body: "Archivo Narrow", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: var(--ink); }
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* ---------- title and end cards ---------- */
+.card {
+  min-height: 72vh;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  text-align: left;
+  padding-block: 12vh;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background:
+    radial-gradient(circle, var(--dot) 1.1px, transparent 1.6px) 0 0 / 7px 7px,
+    var(--ink);
+}
+.card > * { max-width: 34rem; margin: 0; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eyebrow b { color: var(--red); font-weight: 500; }
+.headline {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(76px, 17vw, 168px);
+  line-height: 0.86;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+  text-shadow: 6px 6px 0 var(--red);
+}
+.lede { color: var(--muted); max-width: 30rem; }
+.lede strong { color: var(--paper); font-weight: 600; }
+.hint {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hint::after {
+  content: "";
+  width: 2px;
+  height: 34px;
+  background: linear-gradient(var(--red), transparent);
+  animation: drip 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .hint::after { animation: none; } }
+@keyframes drip { 0%, 100% { transform: translateY(-6px); opacity: 0.4; } 50% { transform: translateY(6px); opacity: 1; } }
+
+/* ---------- the stage ---------- */
+#story { position: relative; }
+.viewport {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.75) 100%),
+    radial-gradient(circle, var(--dot) 1.1px, transparent 1.6px) 0 0 / 7px 7px,
+    var(--ink);
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  opacity: 0;
+}
+.scene:first-child { visibility: visible; opacity: 1; }
+.zoom, .shake, .rig { position: relative; will-change: transform; }
+.zoom { width: var(--w); height: var(--h); }
+.shake, .rig { width: 100%; height: 100%; }
+/* the pan down a tall panel: --pan runs 0 to 1 with the scroll, --travel is how far that is on this screen */
+.rig { translate: 0 calc((0.5 - var(--pan, 0.5)) * var(--travel, 0px)); }
+.frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ink-2);
+  outline: 2px solid var(--paper);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
+}
+.frame img, .bubble {
+  position: absolute;
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+}
+.frame img { inset: 0; width: 100%; height: 100%; }
+.bubble { z-index: 2; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45)); }
+/* particles: one canvas per panel between background and characters, one over the whole stage */
+.fx-mid, .fx-front { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fx-front { z-index: 6; } /* over the flash, so impact sparks fly through it */
+.flash {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ---------- heads-up display ---------- */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.progress {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--red);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.counter {
+  position: absolute;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  padding: 6px 10px;
+  background: var(--ink);
+  border: 1px solid rgba(241, 236, 228, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+.counter b { color: var(--red); font-weight: 500; }
+.sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid rgba(241, 236, 228, 0.25);
+  cursor: pointer;
+}
+.sound:hover { border-color: var(--paper); }
+.sound:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+.sound .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.sound[aria-pressed="true"] { border-color: var(--red); }
+.sound[aria-pressed="true"] .dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
+.hud .sound {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: auto;
+}
+.card .sound { justify-self: start; padding: 12px 18px; font-size: 13px; }
+
+/* ---------- reduced motion: the panels as a plain webtoon column ---------- */
+.static .viewport { position: static; height: auto; overflow: visible; display: grid; gap: 48px; padding-block: 48px; justify-items: center; }
+.static .scene { position: relative; inset: auto; visibility: visible; opacity: 1; }
+.static .zoom { width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
+.static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static .sound { display: none; }
+</style>
+</head>
+<body>
+
+<header class="card">
+  <p class="eyebrow">Storyteller <b>/</b> scroll prototype</p>
+  <h1 class="headline">The Duel</h1>
+  <p class="lede">Ten panels, each split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the scene; scroll back to rewind it. Turn the sound on for the music, the sword effects and the voices.</p>
+  <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
+  <p class="hint">Scroll</p>
+</header>
+
+<main id="story" aria-label="The duel, ten animated panels">
+  <div class="viewport">
+    <div class="flash"></div>
+    <div class="hud" aria-hidden="true">
+      <div class="progress"></div>
+      <div class="counter">Panel <b class="counter-now">01</b> / <span class="counter-total">10</span></div>
+      <button class="sound" type="button" data-sound data-off="Sound off" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Sound off</span></button>
+    </div>
+  </div>
+</main>
+
+<footer class="card">
+  <p class="eyebrow">End of panels 1–10</p>
+  <p class="headline">To be continued</p>
+  <p class="lede">The next panels come in once the rest of the chapter is split into layers.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+/* ======================================================================
+   THE SCENE PLAN: edit this to change the choreography.
+
+   length   how far the reader scrolls through the panel, in screen heights x 100
+   fit      "contain" shows the whole panel; "pan" fills the width and pans down a tall panel
+   camera   moves the whole panel: scale, x / y in % of the panel
+   origin   the point the camera scales around, in % of the panel
+   bg/chars the background and character layers, moved separately for depth
+   bubbles  file, position and size in the panel's own pixels, when it pops in (0-1),
+            and `voice`: the line in assets/audio/voice_<name>.mp3 that plays as it pops
+   shakes   moments (0-1) of a camera shake; flashes: moments of a flash, with its colour and strength
+   sfx      sound effects at moments (0-1): crack, whoosh, grip, flame, swish, clang
+   fx       particles: `ambient` "dust", "embers" or "speed", in a `tint` ("paper", "mana", "ember"),
+            `amount` (1 = normal), and impact `bursts` ("splinters", "sparks", "ring", "flare")
+            at a moment (0-1), coming `from` a point (% of the panel)
+   enter / exit   "cut", "fade" or "zoom"; a "zoom" exit dives into `focus` (% of the panel)
+   ====================================================================== */
+const SCENES = [
+  { id: "panel_01", w: 940, h: 375, length: 120, enter: "cut", exit: "fade",
+    camera: { from: { scale: 1.14, y: 3 }, to: { scale: 1 } },
+    chars: { from: { y: 6 }, to: { y: -3, scale: 1.04 } },
+    fx: { ambient: "dust", tint: "paper", amount: 0.6 } },
+
+  { id: "panel_02", w: 683, h: 1034, length: 230, enter: "fade", exit: "zoom", focus: [81, 90],
+    camera: { from: { scale: 1.1 }, to: { scale: 1 } },
+    bg: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { scale: 0.94, y: 4 }, to: { scale: 1.06, y: -2 } },
+    bubbles: [{ src: "bubble_very_well", x: 152, y: -74, w: 362, h: 333, at: 0.16, voice: "very_well" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.7 } },
+
+  { id: "panel_03", w: 756, h: 480, length: 150, enter: "zoom", exit: "fade",
+    camera: { from: { scale: 1 }, to: { scale: 1.1 } },
+    chars: { from: { scale: 1.25 }, to: { scale: 1 }, over: [0.12, 0.32] },
+    shakes: [0.3], sfx: [{ at: 0.3, sound: "crack" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.5, bursts: [{ type: "splinters", at: 0.3, from: [48, 80] }] } },
+
+  { id: "panel_04", w: 700, h: 994, length: 220, enter: "fade", exit: "zoom", focus: [49, 41],
+    camera: { from: { y: -6 }, to: { y: 5 } },
+    bg: { from: { scale: 1.08 }, to: { scale: 1 } },
+    chars: { from: { y: 9 }, to: { y: -5 } },
+    sfx: [{ at: 0.12, sound: "whoosh" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.6 } },
+
+  { id: "panel_05", w: 477, h: 692, length: 140, enter: "zoom", exit: "fade",
+    camera: { from: { scale: 1.06 }, to: { scale: 1 } },
+    bg: { from: { y: -3 }, to: { y: 3, scale: 1.04 } },
+    chars: { from: { scale: 1.14 }, to: { scale: 1 }, over: [0.05, 0.25] },
+    shakes: [0.12], flashes: [{ at: 0.1, color: "#f1ece4" }], sfx: [{ at: 0.1, sound: "grip" }],
+    fx: { ambient: "dust", tint: "paper", amount: 0.4, bursts: [{ type: "ring", at: 0.1, from: [42, 78] }] } },
+
+  { id: "panel_06", w: 940, h: 1816, length: 280, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { y: 3 }, to: { y: -3 } },
+    bubbles: [{ src: "bubble_go_easy", x: 535, y: 499, w: 389, h: 323, at: 0.38, voice: "go_easy" }],
+    sfx: [{ at: 0.08, sound: "flame" }],
+    fx: { ambient: "embers", tint: "mana", amount: 1.2, bursts: [{ type: "flare", at: 0.08, from: [30, 60] }] } },
+
+  { id: "panel_07", w: 940, h: 384, length: 120, enter: "fade", exit: "fade",
+    camera: { from: { x: 8 }, to: { x: -4 } },
+    chars: { from: { x: 8 }, to: { x: -8 } },
+    sfx: [{ at: 0.25, sound: "swish" }],
+    fx: { ambient: "speed", tint: "paper", amount: 1 } },
+
+  { id: "panel_08", w: 838, h: 747, length: 180, enter: "fade", exit: "fade", origin: [46, 32],
+    camera: { from: { scale: 1 }, to: { scale: 1.22 } },
+    bg: { from: { scale: 1.06 }, to: { scale: 1 } },
+    fx: { ambient: "embers", tint: "mana", amount: 0.45 } },
+
+  { id: "panel_09", w: 940, h: 1648, length: 260, fit: "pan", enter: "fade", exit: "fade",
+    chars: { from: { scale: 0.97 }, to: { scale: 1.04 } },
+    shakes: [0.46], flashes: [{ at: 0.44, color: "#e5202e", strength: 0.55 }], sfx: [{ at: 0.46, sound: "clang" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.8, bursts: [{ type: "sparks", at: 0.46, from: [42, 36] }] } },
+
+  { id: "panel_10", w: 940, h: 955, length: 240, enter: "fade", exit: "zoom", focus: [80, 45],
+    bg: { from: { scale: 1.1 }, to: { scale: 1 } },
+    chars: { from: { x: 4, scale: 1.06 }, to: { x: 0, scale: 1 } },
+    sfx: [{ at: 0.8, sound: "whoosh" }],
+    fx: { ambient: "embers", tint: "mana", amount: 0.7 } },
+];
+const ASSETS = "assets/";
+// the fight music: plays from the start of this panel to the end, fading in and out
+const MUSIC = { src: "audio/fight.mp3", from: "panel_06", volume: 0.5 };
+
+/* ====================================================================== */
+
+const stage = document.querySelector(".viewport");
+const flash = document.querySelector(".flash");
+const counterNow = document.querySelector(".counter-now");
+document.querySelector(".counter-total").textContent = String(SCENES.length).padStart(2, "0");
+
+// build the scenes
+SCENES.forEach((s, i) => {
+  const scene = document.createElement("section");
+  scene.className = "scene";
+  scene.setAttribute("aria-label", `Panel ${i + 1}`);
+  scene.style.setProperty("--ratio", `${s.w} / ${s.h}`);
+  const bubbles = (s.bubbles || []).map((b) =>
+    `<img class="bubble" src="${ASSETS}${b.src}.webp" alt="" style="left:${b.x / s.w * 100}%;top:${b.y / s.h * 100}%;width:${b.w / s.w * 100}%">`).join("");
+  scene.innerHTML = `
+    <div class="zoom"><div class="shake"><div class="rig">
+      <div class="frame">
+        <img class="bg" src="${ASSETS}${s.id}_background.webp" alt="">
+        ${s.fx ? '<canvas class="fx-mid"></canvas>' : ""}
+        <img class="chars" src="${ASSETS}${s.id}_characters.webp" alt="">
+      </div>${bubbles}
+    </div></div></div>`;
+  stage.insertBefore(scene, flash);
+  s.el = scene;
+  s.parts = {
+    zoom: scene.querySelector(".zoom"), shake: scene.querySelector(".shake"), rig: scene.querySelector(".rig"),
+    frame: scene.querySelector(".frame"), bg: scene.querySelector(".bg"), chars: scene.querySelector(".chars"),
+    fx: scene.querySelector(".fx-mid"), bubbles: [...scene.querySelectorAll(".bubble")],
+  };
+});
+
+// size every panel to the screen; "pan" panels fill the width and keep their height
+function layout() {
+  const vw = stage.clientWidth, vh = stage.clientHeight;
+  SCENES.forEach((s) => {
+    let scale;
+    if (s.fit === "pan") scale = Math.min(vw * 0.92, 620) / s.w;
+    else scale = Math.min((vw * 0.9) / s.w, (vh * 0.82) / s.h);
+    s.boxW = s.w * scale;
+    s.boxH = s.h * scale;
+    s.travel = Math.max(0, s.boxH - vh * 0.86); // how far a tall panel pans
+    s.parts.zoom.style.setProperty("--w", `${s.boxW}px`);
+    s.parts.zoom.style.setProperty("--h", `${s.boxH}px`);
+    s.parts.rig.style.setProperty("--travel", `${s.travel}px`);
+  });
+  particles.resize();
+}
+
+let timeline = null;
+const starts = [];
+let total = 0;
+const cues = []; // sound effects and voice lines, in timeline time
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const particles = makeParticles();
+const sound = makeSound();
+if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
+  document.documentElement.classList.add("static");
+} else {
+  gsap.registerPlugin(ScrollTrigger);
+  layout();
+  buildTimeline();
+  window.addEventListener("resize", () => { layout(); ScrollTrigger.refresh(); });
+  gsap.ticker.add(() => {
+    const now = timeline.time();
+    particles.frame(now);
+    sound.update(now);
+  });
+}
+
+function buildTimeline() {
+  total = SCENES.reduce((sum, s) => sum + s.length, 0);
+  document.getElementById("story").style.height = `calc(${total}vh + 100svh)`;
+
+  const tl = gsap.timeline({ defaults: { ease: "none" } });
+  let t = 0;
+
+  SCENES.forEach((s, i) => {
+    const L = s.length, p = s.parts;
+    starts.push(t);
+    const at = (fraction) => t + fraction * L;
+
+    // where the camera scales around: a zoom-out exit uses its focus, otherwise `origin`
+    const origin = s.origin || [50, 50];
+    gsap.set(p.rig, { transformOrigin: `${origin[0]}% ${origin[1]}%` });
+    if (s.focus) gsap.set(p.zoom, { transformOrigin: `${s.focus[0]}% ${s.focus[1]}%` });
+
+    // enter
+    if (s.enter === "cut" || i === 0) tl.set(s.el, { autoAlpha: 1 }, t);
+    else if (s.enter === "zoom") tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, t - 4)
+                                 .fromTo(p.zoom, { scale: 1.7 }, { scale: 1, duration: 0.16 * L, ease: "power2.out" }, t - 4);
+    else tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12 * L }, t - 6)
+           .fromTo(p.zoom, { scale: 0.92, yPercent: 4 }, { scale: 1, yPercent: 0, duration: 0.14 * L, ease: "power1.out" }, t - 6);
+
+    // camera: panel-wide moves, plus the pan down a tall panel
+    const cam = s.camera || { from: {}, to: {} };
+    tl.fromTo(p.rig, toGsap(cam.from), { ...toGsap(cam.to), duration: L }, t);
+    if (s.fit === "pan") tl.fromTo(p.rig, { "--pan": 0 }, { "--pan": 1, duration: L }, t);
+
+    // depth: background and characters move separately
+    for (const layer of ["bg", "chars"]) {
+      if (!s[layer]) continue;
+      const span = s[layer].over || [0, 1];
+      tl.fromTo(p[layer], toGsap(s[layer].from), { ...toGsap(s[layer].to), duration: (span[1] - span[0]) * L,
+        ease: s[layer].over ? "power2.out" : "none" }, at(span[0]));
+    }
+
+    // speech bubbles pop in, then drift up and fade before the panel leaves
+    (s.bubbles || []).forEach((b, k) => {
+      const el = p.bubbles[k];
+      tl.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
+        { scale: 1, rotation: 0, autoAlpha: 1, duration: 0.08 * L, ease: "back.out(2.2)" }, at(b.at));
+      tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(0.8));
+      if (b.voice) cues.push({ time: at(b.at), voice: b.voice });
+    });
+    (s.sfx || []).forEach((f) => cues.push({ time: at(f.at), sfx: f.sound }));
+
+    // impacts
+    (s.shakes || []).forEach((m) => {
+      const d = 0.012 * L;
+      tl.to(p.shake, { keyframes: [{ x: -14, y: 6 }, { x: 12, y: -8 }, { x: -8, y: 4 }, { x: 5, y: -2 }, { x: 0, y: 0 }],
+        duration: 5 * d }, at(m));
+    });
+    (s.flashes || []).forEach((f) => {
+      tl.set(flash, { backgroundColor: f.color }, at(f.at))
+        .fromTo(flash, { opacity: 0 }, { opacity: f.strength ?? 0.85, duration: 0.02 * L }, at(f.at))
+        .to(flash, { opacity: 0, duration: 0.07 * L }, at(f.at) + 0.02 * L);
+    });
+
+    // exit
+    const end = t + L;
+    if (i === SCENES.length - 1 || s.exit === "zoom") {
+      if (s.exit === "zoom") {
+        tl.to(p.zoom, { scale: 7, duration: 0.24 * L, ease: "power2.in" }, end - 0.24 * L)
+          .to(s.el, { autoAlpha: 0, duration: 0.07 * L }, end - 0.07 * L);
+      } else {
+        tl.to(s.el, { autoAlpha: 0, duration: 0.12 * L }, end - 0.12 * L);
+      }
+    } else {
+      tl.to(p.zoom, { yPercent: -6, scale: 1.03, duration: 0.12 * L, ease: "power1.in" }, end - 0.12 * L)
+        .to(s.el, { autoAlpha: 0, duration: 0.1 * L }, end - 0.1 * L);
+    }
+    t = end;
+  });
+  tl.set({}, {}, total); // the timeline spans the whole story exactly
+  timeline = tl;
+  cues.sort((a, b) => a.time - b.time);
+
+  let shown = -1;
+  ScrollTrigger.create({
+    trigger: "#story",
+    start: "top top",
+    end: "bottom bottom",
+    animation: tl,
+    scrub: 0.7,
+    onUpdate(self) {
+      gsap.set(".progress", { scaleX: self.progress });
+      const now = self.progress * total;
+      let i = starts.findLastIndex((s) => s <= now);
+      if (i < 0) i = 0;
+      if (i !== shown) { shown = i; counterNow.textContent = String(i + 1).padStart(2, "0"); }
+    },
+  });
+}
+
+// scene plan uses % for x / y; GSAP calls those xPercent / yPercent
+function toGsap(v = {}) {
+  const out = {};
+  for (const [k, val] of Object.entries(v)) out[k === "x" ? "xPercent" : k === "y" ? "yPercent" : k] = val;
+  return out;
+}
+
+/* ---------------------------------------------------------------- particles
+   Ambient particles live in each panel, between its background and characters, and drift on the clock.
+   Impact bursts are drawn over the stage and follow the scroll, so they rewind when the reader scrolls back. */
+function makeParticles() {
+  const front = document.createElement("canvas");
+  front.className = "fx-front";
+  stage.insertBefore(front, flash);
+  const fctx = front.getContext("2d");
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const TINTS = { paper: "241,236,228", mana: "70,190,255", ember: "255,138,42", spark: "255,226,150", wood: "150,98,56" };
+  const CORES = { paper: "255,252,246", mana: "232,250,255", ember: "255,242,204", spark: "255,255,255", wood: "190,140,90" };
+  const glows = {};
+  const glow = (tint) => glows[tint] || (glows[tint] = (() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const g = c.getContext("2d");
+    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, `rgba(${CORES[tint]},1)`);
+    grd.addColorStop(0.22, `rgba(${TINTS[tint]},0.85)`);
+    grd.addColorStop(1, `rgba(${TINTS[tint]},0)`);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+    return c;
+  })());
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const BASE = { dust: 46, embers: 70, speed: 22 };
+  let few = 1;
+  const frontParts = [];
+
+  function resize() {
+    few = stage.clientWidth < 600 ? 0.55 : 1;
+    front.width = stage.clientWidth * dpr;
+    front.height = stage.clientHeight * dpr;
+    SCENES.forEach((s) => {
+      if (!s.parts.fx) return;
+      const d = Math.min(dpr, 4096 / Math.max(s.boxW, s.boxH)); // canvases have a size limit
+      s.parts.fx.width = s.boxW * d;
+      s.parts.fx.height = s.boxH * d;
+      s.fxScale = d;
+      s.fxParts = [];
+    });
+  }
+
+  function spawn(s, W, H, k) {
+    const kind = s.fx.ambient;
+    if (kind === "embers") return { x: rand(0, W), y: H * rand(0.5, 1.05), vx: rand(-10, 10) * k, vy: rand(-90, -30) * k,
+      sway: rand(4, 16) * k, freq: rand(1, 3), size: rand(1.4, 3.8) * k, life: rand(1.2, 3.4), age: 0 };
+    if (kind === "speed") return { x: W * rand(1, 2), y: rand(0, H), vx: -rand(1.1, 2.4) * W, vy: 0,
+      len: rand(0.08, 0.25) * W, size: rand(1, 2.4) * k, life: 9, age: 0, alpha: rand(0.25, 0.6) };
+    return { x: rand(0, W), y: rand(0, H), vx: rand(-7, 7) * k, vy: rand(-14, -3) * k,
+      size: rand(1, 2.6) * k, life: rand(4, 9), age: rand(0, 3), alpha: rand(0.15, 0.45) };
+  }
+
+  // fade in at birth and out at death
+  const lifeAlpha = (q) => Math.min(1, q.age / 0.4, (q.life - q.age) / 0.6);
+
+  function ambient(s, dt, opacity) {
+    const c = s.parts.fx, g = c.getContext("2d");
+    const W = s.boxW, H = s.boxH, k = W / 700;
+    const target = Math.round(BASE[s.fx.ambient] * (s.fx.amount ?? 1) * few * Math.min(2.2, Math.max(0.7, H / W)));
+    while (s.fxParts.length < target) s.fxParts.push(spawn(s, W, H, k));
+    g.setTransform(s.fxScale, 0, 0, s.fxScale, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const tint = s.fx.tint || "paper";
+    g.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
+    s.fxParts = s.fxParts.filter((q) => {
+      q.age += dt;
+      q.x += q.vx * dt + (q.sway ? Math.sin(q.age * q.freq * 6.28) * q.sway * dt : 0);
+      q.y += q.vy * dt;
+      if (q.age > q.life || q.y < -20 || q.x < -(q.len || 20)) return false;
+      if (s.fx.ambient === "embers") {
+        const flicker = 0.75 + 0.25 * Math.sin(q.age * 23 + q.x);
+        g.globalAlpha = lifeAlpha(q) * flicker * opacity;
+        const r = q.size * 4;
+        g.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
+      } else if (s.fx.ambient === "speed") {
+        g.globalAlpha = q.alpha * opacity;
+        g.fillStyle = `rgb(${TINTS[tint]})`;
+        g.fillRect(q.x, q.y, q.len, q.size);
+      } else {
+        g.globalAlpha = q.alpha * lifeAlpha(q) * opacity;
+        g.fillStyle = `rgb(${TINTS[tint]})`;
+        g.beginPath();
+        g.arc(q.x, q.y, q.size, 0, 6.283);
+        g.fill();
+      }
+      return true;
+    });
+    s.fxDrawn = true;
+  }
+
+  // a few big, soft particles in front of everything, moving faster: depth
+  function foreground(s, dt, opacity) {
+    if (!s || !s.fx || s.fx.ambient === "speed") { frontParts.length = 0; return; }
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const target = Math.round(10 * (s.fx.amount ?? 1) * few);
+    while (frontParts.length < target) frontParts.push({ x: rand(0, W), y: H * rand(0.3, 1.1), vx: rand(-20, 20),
+      vy: rand(-120, -40), size: rand(4, 10), life: rand(2, 5), age: 0 });
+    const tint = s.fx.tint || "paper";
+    fctx.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
+    for (let n = frontParts.length - 1; n >= 0; n--) {
+      const q = frontParts[n];
+      q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt;
+      if (q.age > q.life || q.y < -40) { frontParts.splice(n, 1); continue; }
+      fctx.globalAlpha = lifeAlpha(q) * opacity * (s.fx.ambient === "embers" ? 0.35 : 0.18);
+      const r = q.size * 3;
+      fctx.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
+    }
+  }
+
+  // impact bursts: every particle's path is fixed when the page loads, so any scroll position can be drawn
+  function seeded(seed) {
+    return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function makeBurst(b, seed) {
+    const r = seeded(seed), R = (a, z) => a + r() * (z - a), deg = Math.PI / 180;
+    const parts = [];
+    const add = (n, f) => { for (let i = 0; i < n; i++) parts.push(f()); };
+    if (b.type === "splinters") {
+      add(30, () => ({ kind: "chip", a: R(-170, -10) * deg, v: R(0.25, 0.75), g: 1.1, size: R(3, 9), life: R(0.5, 1), spin: R(-14, 14), tint: "wood" }));
+      add(10, () => ({ kind: "puff", a: R(-180, 0) * deg, v: R(0.04, 0.14), g: 0, size: R(14, 34), life: R(0.6, 1.1), tint: "paper" }));
+    } else if (b.type === "sparks") {
+      add(80, () => ({ kind: "streak", a: R(0, 360) * deg, v: R(0.4, 1.4), g: 0.7, size: R(1, 2.6), life: R(0.25, 0.8), tint: r() < 0.5 ? "spark" : "mana" }));
+      parts.push({ kind: "ring", life: 0.35, size: 0.35 });
+    } else if (b.type === "ring") {
+      add(26, () => ({ kind: "puff", a: R(0, 360) * deg, v: R(0.1, 0.3), g: 0, flat: 0.4, size: R(10, 22), life: R(0.4, 0.8), tint: "paper" }));
+      parts.push({ kind: "ring", life: 0.3, size: 0.22 });
+    } else if (b.type === "flare") {
+      add(60, () => ({ kind: "glow", a: R(-130, -50) * deg, v: R(0.2, 0.7), g: -0.15, size: R(2, 5), life: R(0.5, 1.3), tint: "mana" }));
+    }
+    b.parts = parts;
+    b.span = Math.max(...parts.map((q) => q.life));
+  }
+  SCENES.forEach((s, i) => (s.fx?.bursts || []).forEach((b, j) => makeBurst(b, 1000 * i + j + 1)));
+
+  function bursts(s, i, now, opacity) {
+    if (!s.fx?.bursts) return;
+    const p = (now - starts[i]) / s.length;
+    const rect = s.parts.frame.getBoundingClientRect(), home = stage.getBoundingClientRect();
+    const unit = rect.width, k = unit / 700;
+    for (const b of s.fx.bursts) {
+      const t = (p - b.at) * s.length / 22; // 22 units of scroll = one second of burst
+      if (t < 0 || t > b.span) continue;
+      const ox = rect.left - home.left + (b.from[0] / 100) * rect.width;
+      const oy = rect.top - home.top + (b.from[1] / 100) * rect.height;
+      for (const q of b.parts) {
+        if (t > q.life) continue;
+        const fade = Math.pow(1 - t / q.life, 1.2) * opacity;
+        if (q.kind === "ring") {
+          fctx.globalCompositeOperation = "lighter";
+          fctx.globalAlpha = fade * 0.8;
+          fctx.strokeStyle = "rgb(255,250,235)";
+          fctx.lineWidth = 3 * k;
+          fctx.beginPath();
+          fctx.arc(ox, oy, (t / q.life) * q.size * unit, 0, 6.283);
+          fctx.stroke();
+          continue;
+        }
+        const d = (q.v * (t - (0.35 * t * t) / q.life)) * unit;
+        const x = ox + Math.cos(q.a) * d;
+        const y = oy + Math.sin(q.a) * d * (q.flat || 1) + 0.5 * q.g * unit * t * t;
+        fctx.globalAlpha = fade;
+        if (q.kind === "streak") {
+          fctx.globalCompositeOperation = "lighter";
+          const back = 0.035 * q.v * unit;
+          fctx.strokeStyle = `rgb(${CORES[q.tint]})`;
+          fctx.lineWidth = q.size * k;
+          fctx.beginPath();
+          fctx.moveTo(x, y);
+          fctx.lineTo(x - Math.cos(q.a) * back, y - Math.sin(q.a) * back - q.g * unit * t * 0.035);
+          fctx.stroke();
+        } else if (q.kind === "chip") {
+          fctx.globalCompositeOperation = "source-over";
+          fctx.fillStyle = `rgb(${TINTS.wood})`;
+          fctx.save();
+          fctx.translate(x, y);
+          fctx.rotate(q.spin * t);
+          fctx.fillRect(-q.size * k, -q.size * k * 0.35, 2 * q.size * k, 0.7 * q.size * k);
+          fctx.restore();
+        } else {
+          const glowing = q.kind === "glow";
+          fctx.globalCompositeOperation = glowing ? "lighter" : "source-over";
+          fctx.globalAlpha = fade * (glowing ? 1 : 0.3);
+          const r = (glowing ? q.size * 4 : q.size * (1 + t / q.life)) * k;
+          fctx.drawImage(glow(q.tint), x - r, y - r, 2 * r, 2 * r);
+        }
+      }
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const clock = performance.now(), dt = Math.min(0.05, (clock - last) / 1000);
+    last = clock;
+    const box = document.getElementById("story").getBoundingClientRect();
+    if (box.bottom < 0 || box.top > innerHeight) return; // story off screen: nothing to draw
+    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fctx.clearRect(0, 0, front.width, front.height);
+    let lead = null, leadOpacity = 0;
+    SCENES.forEach((s, i) => {
+      const opacity = +gsap.getProperty(s.el, "opacity");
+      if (opacity < 0.02) {
+        if (s.fxDrawn) { s.parts.fx.getContext("2d").clearRect(0, 0, s.parts.fx.width, s.parts.fx.height); s.fxDrawn = false; s.fxParts = []; }
+        return;
+      }
+      if (opacity > leadOpacity) { lead = s; leadOpacity = opacity; }
+      if (s.fx) ambient(s, dt, opacity);
+      bursts(s, i, now, opacity);
+    });
+    foreground(lead, dt, leadOpacity);
+    fctx.globalAlpha = 1;
+  }
+
+  return { resize, frame };
+}
+
+/* ---------------------------------------------------------------- sound
+   Off until the reader taps a Sound button (browsers block sound before that).
+   The sword effects are synthesised here, so they need no files; music and voices are files in assets/audio/,
+   and the page simply stays quiet for any file that is not there yet. */
+function makeSound() {
+  const buttons = [...document.querySelectorAll("[data-sound]")];
+  let ctx = null, on = false, musicGain, sfxGain, voiceGain, noise, musicLevel = -1, duckUntil = 0, last = 0;
+  const voices = {};
+
+  function label() {
+    for (const b of buttons) {
+      b.setAttribute("aria-pressed", String(on));
+      b.querySelector(".label").textContent = on ? b.dataset.on : b.dataset.off;
+    }
+  }
+  async function load(path) {
+    try {
+      const res = await fetch(ASSETS + path);
+      return res.ok ? await ctx.decodeAudioData(await res.arrayBuffer()) : null;
+    } catch { return null; }
+  }
+  async function start() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -10;
+    limiter.connect(ctx.destination);
+    [musicGain, sfxGain, voiceGain] = [0, 0.8, 1].map((v) => { const g = ctx.createGain(); g.gain.value = v; g.connect(limiter); return g; });
+    noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    const music = await load(MUSIC.src);
+    if (music) {
+      const src = ctx.createBufferSource();
+      src.buffer = music;
+      src.loop = true;
+      src.connect(musicGain);
+      src.start();
+    }
+    const names = SCENES.flatMap((s) => (s.bubbles || []).map((b) => b.voice).filter(Boolean));
+    await Promise.all(names.map(async (n) => { voices[n] = await load(`audio/voice_${n}.mp3`); }));
+  }
+  async function toggle() {
+    on = !on;
+    label();
+    if (on && !ctx) await start();
+    if (ctx) on ? ctx.resume() : ctx.suspend();
+  }
+  buttons.forEach((b) => b.addEventListener("click", toggle));
+  document.addEventListener("visibilitychange", () => { if (ctx && on) document.hidden ? ctx.suspend() : ctx.resume(); });
+
+  // ---- synthesised sword effects
+  function noiseHit(t, type, f0, f1, q, attack, decay, peak) {
+    const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noise;
+    filter.type = type;
+    filter.Q.value = q;
+    filter.frequency.setValueAtTime(f0, t);
+    filter.frequency.exponentialRampToValueAtTime(f1, t + attack + decay);
+    envelope(g, t, attack, decay, peak);
+    src.connect(filter).connect(g).connect(sfxGain);
+    src.start(t, Math.random());
+    src.stop(t + attack + decay + 0.05);
+  }
+  function tone(t, type, f0, f1, attack, decay, peak) {
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f0, t);
+    osc.frequency.exponentialRampToValueAtTime(f1, t + attack + decay);
+    envelope(g, t, attack, decay, peak);
+    osc.connect(g).connect(sfxGain);
+    osc.start(t);
+    osc.stop(t + attack + decay + 0.05);
+  }
+  function envelope(g, t, attack, decay, peak) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+  }
+  const EFFECTS = {
+    whoosh: (t) => noiseHit(t, "bandpass", 300, 2600, 1.2, 0.18, 0.45, 0.7),
+    swish: (t) => noiseHit(t, "bandpass", 900, 4200, 1.5, 0.05, 0.22, 0.6),
+    crack: (t) => { noiseHit(t, "bandpass", 2400, 1100, 2, 0.002, 0.12, 0.9); tone(t, "sine", 150, 55, 0.002, 0.28, 0.8);
+      noiseHit(t, "lowpass", 900, 250, 0.7, 0.005, 0.45, 0.35); },
+    grip: (t) => { tone(t, "sine", 120, 45, 0.003, 0.3, 0.9); noiseHit(t, "lowpass", 1600, 400, 0.7, 0.002, 0.16, 0.5); },
+    flame: (t) => { noiseHit(t, "lowpass", 220, 3400, 0.8, 0.35, 1.1, 0.6); tone(t, "sine", 70, 48, 0.2, 1.2, 0.5); },
+    clang: (t) => {
+      // a struck blade: inharmonic partials ringing out at different speeds, on a sharp attack
+      [[622, 1.4, 0.32], [1131, 1.1, 0.28], [1897, 0.8, 0.2], [2836, 0.6, 0.15], [3971, 0.45, 0.11], [5210, 0.3, 0.07]]
+        .forEach(([f, d, a]) => tone(t, "sine", f, f * 0.995, 0.002, d, a));
+      noiseHit(t, "highpass", 3000, 6000, 0.7, 0.001, 0.06, 0.8);
+      tone(t, "sine", 160, 60, 0.002, 0.22, 0.6);
+    },
+  };
+
+  // follow the story: music level by position, effects and voices as their moment passes going forward
+  function update(now) {
+    if (!ctx || !on) { last = now; return; }
+    const from = starts[SCENES.findIndex((s) => s.id === MUSIC.from)] ?? 0;
+    let level = Math.min(1, Math.max(0, (now - from) / 40)) * Math.min(1, Math.max(0, (total - now) / 60)) * MUSIC.volume;
+    if (ctx.currentTime < duckUntil) level *= 0.4; // make room for a voice line
+    if (Math.abs(level - musicLevel) > 0.005) {
+      musicGain.gain.setTargetAtTime(level, ctx.currentTime, 0.25);
+      musicLevel = level;
+    }
+    if (now > last && now - last < 25) { // forward, and not a jump across the page
+      for (const cue of cues) {
+        if (cue.time <= last || cue.time > now) continue;
+        if (cue.sfx) EFFECTS[cue.sfx]?.(ctx.currentTime + 0.01);
+        else if (voices[cue.voice]) {
+          const src = ctx.createBufferSource();
+          src.buffer = voices[cue.voice];
+          src.connect(voiceGain);
+          src.start();
+          duckUntil = ctx.currentTime + src.buffer.duration + 0.3;
+        }
+      }
+    }
+    last = now;
+  }
+
+  return { update };
+}
+</script>
+</body>
+</html>
