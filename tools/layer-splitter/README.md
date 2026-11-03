@@ -25,16 +25,24 @@ Needs Python 3.10 or newer.
 ```bash
 cd tools/layer-splitter
 pip install -r requirements.txt
+pip install --no-deps simple-lama-inpainting==0.1.2
 python split_layers.py path/to/your/images --out layers
 ```
 
-The first run downloads the AI models (about 1.4 GB). Expect about a minute per panel without a graphics card.
+With an NVIDIA graphics card, swap the processor build for the GPU one to make the cutouts much faster:
+`pip uninstall onnxruntime` then `pip install "rembg[gpu]"`.
+
+If your images are slices of one long webtoon strip (panels cut in two between
+images), add `--join` to stack them back together, in file-name order, before splitting.
+
+The first run downloads the AI models (about 2.3 GB). Expect a couple of minutes per panel without a graphics card, a few seconds with one.
 
 ## How it works
 
 - **Panels** are found by looking for the black or white gaps between them.
-- **Speech bubbles** are white shapes with lettering inside.
-- **Characters** are cut out by two BiRefNet models (full and lite, via `rembg`) and their results are combined: each one misses different bits, so together they miss less. Use `--models birefnet-general-lite` for a quicker, rougher run.
+- **Speech bubbles** are white shapes with black lettering inside.
+- **Characters** are cut out by two BiRefNet models (`birefnet-general` and `birefnet-hrsod`, via `rembg`), each run on the panel and on a mirrored copy, and the results are combined. These two were picked by comparing all of rembg's models on webtoon panels: the others missed parts of characters or grabbed chunks of background. Without a graphics card only `birefnet-general` runs, to save time and memory. Use `--models birefnet-general-lite` for a quicker, rougher run.
+- **Edges** are then refined with ViTMatte (for hair and flames, and to drop see-through patches), and the background colour mixed into soft edge pixels is removed so characters carry no fringe.
 - **Backgrounds** are filled in with LaMa where the characters and bubbles were.
 
 Sound effects drawn over the art (like "SLASH") usually stay with the characters layer.

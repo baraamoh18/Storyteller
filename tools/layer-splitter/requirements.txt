@@ -1,5 +1,5 @@
 rembg[cpu]>=2.0.60
-simple-lama-inpainting==0.1.2
+torch
 opencv-python-headless
 scipy
 pillow

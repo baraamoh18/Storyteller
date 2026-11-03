@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Storyteller Duel Scene</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Archivo+Narrow:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one pinned stage the reader scrubs through like a film strip; a title card above, an end card below.
+   Single dark look on purpose (neo-noir comic): ink black, paper white, one flat red. */
+:root {
+  --ink: #0b0a0d;
+  --ink-2: #17151b;
+  --paper: #f1ece4;
+  --muted: #a39d96;
+  --red: #e5202e;
+  --dot: rgba(241, 236, 228, 0.07);
+  --display: "Bangers", "Impact", "Arial Black", sans-serif;
+  --body: "Archivo Narrow", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: var(--ink); }
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* ---------- title and end cards ---------- */
+.card {
+  min-height: 72vh;
+  display: grid;
+  place-content: center;
+  gap: 18px;
+  text-align: left;
+  padding-block: 12vh;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background:
+    radial-gradient(circle, var(--dot) 1.1px, transparent 1.6px) 0 0 / 7px 7px,
+    var(--ink);
+}
+.card > * { max-width: 34rem; margin: 0; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eyebrow b { color: var(--red); font-weight: 500; }
+.headline {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(76px, 17vw, 168px);
+  line-height: 0.86;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+  text-shadow: 6px 6px 0 var(--red);
+}
+.lede { color: var(--muted); max-width: 30rem; }
+.lede strong { color: var(--paper); font-weight: 600; }
+.hint {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hint::after {
+  content: "";
+  width: 2px;
+  height: 34px;
+  background: linear-gradient(var(--red), transparent);
+  animation: drip 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .hint::after { animation: none; } }
+@keyframes drip { 0%, 100% { transform: translateY(-6px); opacity: 0.4; } 50% { transform: translateY(6px); opacity: 1; } }
+
+/* ---------- the stage ---------- */
+#story { position: relative; }
+.viewport {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.75) 100%),
+    radial-gradient(circle, var(--dot) 1.1px, transparent 1.6px) 0 0 / 7px 7px,
+    var(--ink);
+}
+.scene {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  opacity: 0;
+}
+.scene:first-child { visibility: visible; opacity: 1; }
+.zoom, .shake, .pan, .rig { position: relative; will-change: transform; }
+/* centred by hand: a grid would pin a panel taller than the screen to the top instead */
+.zoom { position: absolute; left: 50%; top: 50%; width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); }
+.shake, .pan, .rig { width: 100%; height: 100%; }
+/* the pan down a tall panel: --pan runs 0 to 1 with the scroll, --travel is how far that is on this screen.
+   It has its own wrapper because GSAP resets `translate` on any element whose transform it animates. */
+.pan { translate: 0 calc((0.5 - var(--pan, 0.5)) * var(--travel, 0px)); }
+.frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ink-2);
+  outline: 2px solid var(--paper);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
+}
+.frame img, .bubble {
+  position: absolute;
+  display: block;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: transform;
+}
+.frame img { inset: 0; width: 100%; height: 100%; }
+.bubble { z-index: 2; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45)); }
+/* particles: one canvas per panel between background and characters, one over the whole stage */
+.fx-mid, .fx-front { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fx-front { z-index: 6; } /* over the flash, so impact sparks fly through it */
+.flash {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ---------- heads-up display ---------- */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.progress {
+  position: absolute;
+  top: env(safe-area-inset-top, 0px);
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--red);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.counter {
+  position: absolute;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  padding: 6px 10px;
+  background: var(--ink);
+  border: 1px solid rgba(241, 236, 228, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+.counter b { color: var(--red); font-weight: 500; }
+.sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid rgba(241, 236, 228, 0.25);
+  cursor: pointer;
+}
+.sound:hover { border-color: var(--paper); }
+.sound:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
+.sound .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.sound[aria-pressed="true"] { border-color: var(--red); }
+.sound[aria-pressed="true"] .dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
+.hud .sound {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: auto;
+}
+.card .sound { padding: 12px 18px; font-size: 13px; }
+/* the title card's two buttons: sound, and the fans' reading playlist on Spotify (opens in a new tab) */
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.playlist, .next-chapter { text-decoration: none; }
+.sound[hidden] { display: none; }
+.playlist .arrow { color: var(--red); }
+
+/* ---------- chapter menu (title card) ---------- */
+.chapters { display: grid; gap: 10px; }
+.chapter-list { list-style: none; margin: 0; padding: 0; display: grid; border-top: 1px solid rgba(241, 236, 228, 0.18); }
+.chapter-list a {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 4px;
+  color: var(--paper);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(241, 236, 228, 0.18);
+}
+.chapter-list a:hover { background: var(--ink-2); }
+.chapter-list a:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.chapter-list .num, .chapter-list .meta { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chapter-list .name { font-family: var(--display); font-size: 24px; letter-spacing: 0.02em; line-height: 1.1; }
+.chapter-list a[aria-current="page"] .num { color: var(--red); }
+.chapter-list a[aria-current="page"] .name { text-shadow: 2px 2px 0 var(--red); }
+.notice { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+
+/* ---------- reduced motion: the panels as a plain webtoon column ---------- */
+.static .viewport { position: static; height: auto; overflow: visible; display: grid; gap: 48px; padding-block: 48px; justify-items: center; }
+.static .scene { position: relative; inset: auto; visibility: visible; opacity: 1; }
+.static .zoom { position: relative; left: auto; top: auto; margin: 0; width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
+.static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static [data-sound] { display: none; }
+</style>
+</head>
+<body>
+
+<header class="card">
+  <p class="eyebrow">Storyteller <b>/</b> <span class="series-title">The Beginning After the End</span></p>
+  <h1 class="headline chapter-title">The Duel</h1>
+  <p class="lede">Each panel is split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the chapter; scroll back to rewind it. Turn the sound on for the music and the sword effects.</p>
+  <div class="actions">
+    <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
+    <a class="sound playlist" href="https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe" target="_blank" rel="noopener">Reading playlist <span class="arrow" aria-hidden="true">↗</span></a>
+  </div>
+  <nav class="chapters" aria-label="Chapters">
+    <p class="eyebrow">Chapters</p>
+    <ol class="chapter-list"></ol>
+  </nav>
+  <p class="hint">Scroll</p>
+</header>
+
+<main id="story" aria-label="The chapter, as animated panels">
+  <div class="viewport">
+    <div class="flash"></div>
+    <div class="hud" aria-hidden="true">
+      <div class="progress"></div>
+      <div class="counter">Panel <b class="counter-now">01</b> / <span class="counter-total">10</span></div>
+      <button class="sound" type="button" data-sound data-off="Sound off" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Sound off</span></button>
+    </div>
+  </div>
+</main>
+
+<footer class="card">
+  <p class="eyebrow end-label">End of the chapter</p>
+  <p class="headline end-title">To be continued</p>
+  <div class="actions">
+    <a class="sound next-chapter" href="#" hidden>Next chapter <span class="arrow" aria-hidden="true">→</span></a>
+    <button class="sound to-menu" type="button">All chapters <span class="arrow" aria-hidden="true">↑</span></button>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="series.js"></script>
+<script>
+/* ======================================================================
+   The reader. Each chapter's scene plan lives in chapters/<id>/chapter.js (see site/README.md),
+   the chapter list and the music themes in series.js. The address picks the chapter: index.html#<id>.
+   ====================================================================== */
+const SERIES = window.SERIES || { title: "", chapters: [], themes: {} };
+let CHAPTER = null, SCENES = [], ASSETS = "", MUSIC = [];
+function registerChapter(c) { CHAPTER = c; } // called by chapter.js
+
+const chapterIds = SERIES.chapters.map((c) => c.id);
+const wanted = decodeURIComponent(location.hash.slice(1));
+const current = chapterIds.includes(wanted) ? wanted : chapterIds[0];
+// switching chapters starts the page afresh, so no state carries over from the last one
+window.addEventListener("hashchange", () => {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (chapterIds.includes(id) && id !== current) location.reload();
+});
+
+const label = (c) => (c.number != null ? `Ch. ${c.number}` : "Ch. —");
+document.querySelector(".series-title").textContent = SERIES.title;
+const playlist = document.querySelector(".playlist");
+if (SERIES.playlist) playlist.href = SERIES.playlist; else playlist.hidden = true;
+document.querySelector(".chapter-list").innerHTML = SERIES.chapters.map((c) =>
+  `<li><a href="#${encodeURIComponent(c.id)}"${c.id === current ? ' aria-current="page"' : ""}>` +
+  `<span class="num">${label(c)}</span><span class="name">${c.title}</span><span class="meta">${c.panels} panel${c.panels === 1 ? "" : "s"}</span></a></li>`).join("");
+document.querySelector(".to-menu").addEventListener("click", () => {
+  window.scrollTo(0, 0);
+  document.querySelector(".chapter-list a")?.focus({ preventScroll: true });
+});
+
+// the music: each stretch of the chapter names a theme; a theme used again plays its next take
+function resolveMusic(zones = []) {
+  const used = {};
+  return zones.flatMap((z) => {
+    const takes = SERIES.themes[z.theme] || [];
+    if (!takes.length) return [];
+    let k = z.take;
+    if (k == null) { k = used[z.theme] ?? 0; used[z.theme] = k + 1; }
+    const take = takes[k % takes.length];
+    return [{ src: take.src, volume: take.volume, from: z.from, to: z.to }];
+  });
+}
+
+// load the chapter's scene plan, then build it
+if (current) {
+  const tag = document.createElement("script");
+  tag.src = `chapters/${current}/chapter.js`;
+  tag.onload = () => (CHAPTER ? boot() : missing());
+  tag.onerror = missing;
+  document.body.appendChild(tag);
+} else missing();
+
+function missing() {
+  document.querySelector(".chapter-title").textContent = "Chapter not ready";
+  document.getElementById("story").innerHTML = `<p class="card notice">The chapter files are missing: chapters/${current || "<id>"}/chapter.js</p>`;
+}
+
+/* ====================================================================== */
+
+const stage = document.querySelector(".viewport");
+const flash = document.querySelector(".flash");
+const counterNow = document.querySelector(".counter-now");
+let particles, sound;
+
+function boot() {
+  SCENES = CHAPTER.scenes;
+  ASSETS = `chapters/${current}/`;
+  MUSIC = resolveMusic(CHAPTER.music);
+  document.querySelector(".chapter-title").textContent = CHAPTER.title;
+  document.getElementById("story").setAttribute("aria-label", `${CHAPTER.title}, ${SCENES.length} animated panels`);
+  document.querySelector(".counter-total").textContent = String(SCENES.length).padStart(2, "0");
+  document.querySelector(".end-label").textContent = `End of ${label(CHAPTER)} · ${CHAPTER.title}`;
+  const next = SERIES.chapters[chapterIds.indexOf(current) + 1];
+  if (next) {
+    const link = document.querySelector(".next-chapter");
+    link.href = `#${encodeURIComponent(next.id)}`;
+    link.hidden = false;
+    document.querySelector(".end-title").textContent = `Next: ${next.title}`;
+  }
+  buildScenes();
+  start();
+}
+
+// build the scenes
+function buildScenes() { SCENES.forEach((s, i) => {
+  const scene = document.createElement("section");
+  scene.className = "scene";
+  scene.setAttribute("aria-label", `Panel ${i + 1}`);
+  scene.style.setProperty("--ratio", `${s.w} / ${s.h}`);
+  // images get their file only when the reader comes near (see `preload`), so 60 panels don't load at once
+  const bubbles = (s.bubbles || []).map((b) =>
+    `<img class="bubble" data-src="${ASSETS}${b.src}.webp" alt="" onerror="this.style.display='none'" style="left:${b.x / s.w * 100}%;top:${b.y / s.h * 100}%;width:${b.w / s.w * 100}%">`).join("");
+  scene.innerHTML = `
+    <div class="zoom"><div class="shake"><div class="pan"><div class="rig">
+      <div class="frame">
+        <img class="bg" data-src="${ASSETS}${s.id}_background.webp" alt="" decoding="async">
+        ${s.fx ? '<canvas class="fx-mid"></canvas>' : ""}
+        <img class="chars" data-src="${ASSETS}${s.id}_characters.webp" alt="" decoding="async">
+      </div>${bubbles}
+    </div></div></div></div>`;
+  stage.insertBefore(scene, flash);
+  s.el = scene;
+  s.parts = {
+    zoom: scene.querySelector(".zoom"), shake: scene.querySelector(".shake"), pan: scene.querySelector(".pan"), rig: scene.querySelector(".rig"),
+    frame: scene.querySelector(".frame"), bg: scene.querySelector(".bg"), chars: scene.querySelector(".chars"),
+    fx: scene.querySelector(".fx-mid"), bubbles: [...scene.querySelectorAll(".bubble")],
+  };
+}); }
+
+// size every panel to the screen; "pan" panels fill the width and keep their height
+function layout() {
+  const vw = stage.clientWidth, vh = stage.clientHeight;
+  SCENES.forEach((s) => {
+    let scale;
+    if (s.fit === "pan") scale = Math.min(vw * 0.92, 620) / s.w;
+    else scale = Math.min((vw * 0.9) / s.w, (vh * 0.82) / s.h);
+    s.boxW = s.w * scale;
+    s.boxH = s.h * scale;
+    s.travel = Math.max(0, s.boxH - vh * 0.86); // how far a tall panel pans
+    s.parts.zoom.style.setProperty("--w", `${s.boxW}px`);
+    s.parts.zoom.style.setProperty("--h", `${s.boxH}px`);
+    s.parts.pan.style.setProperty("--travel", `${s.travel}px`);
+    // bubbles that hang off the panel are nudged back so they stay on screen, clear of the sound button at the top
+    (s.bubbles || []).forEach((b, k) => {
+      const el = s.parts.bubbles[k], m = 8, mTop = 56;
+      const left = (vw - s.boxW) / 2, top = (vh - s.boxH) / 2;
+      let x = b.x * scale, y = b.y * scale;
+      const w = b.w * scale, h = b.h * scale;
+      x = Math.max(m - left, Math.min(x, vw - m - left - w));
+      if (s.fit !== "pan") y = Math.max(mTop - top, Math.min(y, vh - m - top - h));
+      else y = Math.max(y, mTop - top - s.travel / 2); // a tall panel: just keep it below the top of the screen at the start
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.width = `${w}px`;
+    });
+  });
+  particles.resize();
+}
+
+// give the images near the current panel their files; everything further on loads as the reader gets there
+const loaded = new Set();
+function preload(i) {
+  for (let j = Math.max(0, i - 1); j <= Math.min(SCENES.length - 1, i + 3); j++) {
+    if (loaded.has(j)) continue;
+    loaded.add(j);
+    SCENES[j].el.querySelectorAll("img[data-src]").forEach((img) => { img.src = img.dataset.src; });
+  }
+}
+
+let timeline = null;
+const starts = [];
+let total = 0;
+const cues = []; // sound effects, in timeline time
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function start() {
+particles = makeParticles();
+sound = makeSound();
+if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
+  document.documentElement.classList.add("static");
+  document.querySelectorAll("img[data-src]").forEach((img) => { img.loading = "lazy"; img.src = img.dataset.src; });
+} else {
+  preload(0);
+  gsap.registerPlugin(ScrollTrigger);
+  layout();
+  buildTimeline();
+  window.addEventListener("resize", () => { layout(); ScrollTrigger.refresh(); });
+  gsap.ticker.add(() => {
+    const now = timeline.time();
+    particles.frame(now);
+    sound.update(now);
+  });
+}
+}
+
+function buildTimeline() {
+  total = SCENES.reduce((sum, s) => sum + s.length, 0);
+  document.getElementById("story").style.height = `calc(${total}vh + 100svh)`;
+
+  const tl = gsap.timeline({ defaults: { ease: "none" } });
+  let t = 0;
+
+  SCENES.forEach((s, i) => {
+    const L = s.length, p = s.parts;
+    starts.push(t);
+    const at = (fraction) => t + fraction * L;
+
+    // where the camera scales around: a zoom-out exit uses its focus, otherwise `origin`
+    const origin = s.origin || [50, 50];
+    gsap.set(p.rig, { transformOrigin: `${origin[0]}% ${origin[1]}%` });
+    if (s.focus) gsap.set(p.zoom, { transformOrigin: `${s.focus[0]}% ${s.focus[1]}%` });
+
+    // enter
+    if (s.enter === "cut" || i === 0) tl.set(s.el, { autoAlpha: 1 }, t);
+    else if (s.enter === "zoom") tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, t - 4)
+                                 .fromTo(p.zoom, { scale: 1.7 }, { scale: 1, duration: 0.16 * L, ease: "power2.out" }, t - 4);
+    else tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12 * L }, t - 6)
+           .fromTo(p.zoom, { scale: 0.92, yPercent: 4 }, { scale: 1, yPercent: 0, duration: 0.14 * L, ease: "power1.out" }, t - 6);
+
+    // camera: panel-wide moves, plus the pan down a tall panel
+    const cam = s.camera || { from: {}, to: {} };
+    tl.fromTo(p.rig, toGsap(cam.from), { ...toGsap(cam.to), duration: L }, t);
+    if (s.fit === "pan") tl.fromTo(p.pan, { "--pan": 0 }, { "--pan": 1, duration: L }, t);
+
+    // depth: background and characters move separately
+    for (const layer of ["bg", "chars"]) {
+      if (!s[layer]) continue;
+      const span = s[layer].over || [0, 1];
+      tl.fromTo(p[layer], toGsap(s[layer].from), { ...toGsap(s[layer].to), duration: (span[1] - span[0]) * L,
+        ease: s[layer].over ? "power2.out" : "none" }, at(span[0]));
+    }
+
+    // speech bubbles pop in, then drift up and fade before the panel leaves
+    (s.bubbles || []).forEach((b, k) => {
+      const el = p.bubbles[k];
+      if (b.pop === false) {
+        tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, at(b.at));
+        return;
+      }
+      tl.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
+        { scale: 1, rotation: 0, autoAlpha: 1, duration: 0.08 * L, ease: "back.out(2.2)" }, at(b.at));
+      tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(0.8));
+    });
+    (s.sfx || []).forEach((f) => cues.push({ time: at(f.at), sfx: f.sound }));
+
+    // impacts
+    (s.shakes || []).forEach((m) => {
+      const d = 0.012 * L;
+      tl.to(p.shake, { keyframes: [{ x: -14, y: 6 }, { x: 12, y: -8 }, { x: -8, y: 4 }, { x: 5, y: -2 }, { x: 0, y: 0 }],
+        duration: 5 * d }, at(m));
+    });
+    (s.flashes || []).forEach((f) => {
+      tl.set(flash, { backgroundColor: f.color }, at(f.at))
+        .fromTo(flash, { opacity: 0 }, { opacity: f.strength ?? 0.85, duration: 0.02 * L }, at(f.at))
+        .to(flash, { opacity: 0, duration: 0.07 * L }, at(f.at) + 0.02 * L);
+    });
+
+    // exit
+    const end = t + L;
+    if (i === SCENES.length - 1 || s.exit === "zoom") {
+      if (s.exit === "zoom") {
+        tl.to(p.zoom, { scale: 7, duration: 0.24 * L, ease: "power2.in" }, end - 0.24 * L)
+          .to(s.el, { autoAlpha: 0, duration: 0.07 * L }, end - 0.07 * L);
+      } else {
+        tl.to(s.el, { autoAlpha: 0, duration: 0.12 * L }, end - 0.12 * L);
+      }
+    } else {
+      tl.to(p.zoom, { yPercent: -6, scale: 1.03, duration: 0.12 * L, ease: "power1.in" }, end - 0.12 * L)
+        .to(s.el, { autoAlpha: 0, duration: 0.1 * L }, end - 0.1 * L);
+    }
+    t = end;
+  });
+  tl.set({}, {}, total); // the timeline spans the whole story exactly
+  timeline = tl;
+  cues.sort((a, b) => a.time - b.time);
+
+  let shown = -1;
+  ScrollTrigger.create({
+    trigger: "#story",
+    start: "top top",
+    end: "bottom bottom",
+    animation: tl,
+    scrub: 0.7,
+    onUpdate(self) {
+      gsap.set(".progress", { scaleX: self.progress });
+      const now = self.progress * total;
+      let i = starts.findLastIndex((s) => s <= now);
+      if (i < 0) i = 0;
+      if (i !== shown) { shown = i; counterNow.textContent = String(i + 1).padStart(2, "0"); preload(i); }
+    },
+  });
+}
+
+// scene plan uses % for x / y; GSAP calls those xPercent / yPercent
+function toGsap(v = {}) {
+  const out = {};
+  for (const [k, val] of Object.entries(v)) out[k === "x" ? "xPercent" : k === "y" ? "yPercent" : k] = val;
+  return out;
+}
+
+/* ---------------------------------------------------------------- particles
+   Ambient particles live in each panel, between its background and characters, and drift on the clock.
+   Impact bursts are drawn over the stage and follow the scroll, so they rewind when the reader scrolls back. */
+function makeParticles() {
+  const front = document.createElement("canvas");
+  front.className = "fx-front";
+  stage.insertBefore(front, flash);
+  const fctx = front.getContext("2d");
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const TINTS = { paper: "241,236,228", mana: "70,190,255", ember: "255,138,42", spark: "255,226,150", wood: "150,98,56" };
+  const CORES = { paper: "255,252,246", mana: "232,250,255", ember: "255,242,204", spark: "255,255,255", wood: "190,140,90" };
+  const glows = {};
+  const glow = (tint) => glows[tint] || (glows[tint] = (() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const g = c.getContext("2d");
+    const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grd.addColorStop(0, `rgba(${CORES[tint]},1)`);
+    grd.addColorStop(0.22, `rgba(${TINTS[tint]},0.85)`);
+    grd.addColorStop(1, `rgba(${TINTS[tint]},0)`);
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+    return c;
+  })());
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const BASE = { dust: 46, embers: 70, speed: 22 };
+  let few = 1;
+  const frontParts = [];
+
+  function resize() {
+    few = stage.clientWidth < 600 ? 0.55 : 1;
+    front.width = stage.clientWidth * dpr;
+    front.height = stage.clientHeight * dpr;
+    SCENES.forEach((s) => {
+      if (!s.parts.fx) return;
+      s.fxScale = Math.min(dpr, 4096 / Math.max(s.boxW, s.boxH)); // canvases have a size limit
+      s.fxParts = [];
+      if (s.fxDrawn) claim(s);
+    });
+  }
+  // a panel's canvas only takes memory while the panel is on screen
+  function claim(s) {
+    s.parts.fx.width = s.boxW * s.fxScale;
+    s.parts.fx.height = s.boxH * s.fxScale;
+  }
+  function release(s) {
+    s.parts.fx.width = s.parts.fx.height = 0;
+    s.fxDrawn = false;
+    s.fxParts = [];
+  }
+
+  function spawn(s, W, H, k) {
+    const kind = s.fx.ambient;
+    if (kind === "embers") return { x: rand(0, W), y: H * rand(0.5, 1.05), vx: rand(-10, 10) * k, vy: rand(-90, -30) * k,
+      sway: rand(4, 16) * k, freq: rand(1, 3), size: rand(1.4, 3.8) * k, life: rand(1.2, 3.4), age: 0 };
+    if (kind === "speed") return { x: W * rand(1, 2), y: rand(0, H), vx: -rand(1.1, 2.4) * W, vy: 0,
+      len: rand(0.08, 0.25) * W, size: rand(1, 2.4) * k, life: 9, age: 0, alpha: rand(0.25, 0.6) };
+    return { x: rand(0, W), y: rand(0, H), vx: rand(-7, 7) * k, vy: rand(-14, -3) * k,
+      size: rand(1, 2.6) * k, life: rand(4, 9), age: rand(0, 3), alpha: rand(0.15, 0.45) };
+  }
+
+  // fade in at birth and out at death
+  const lifeAlpha = (q) => Math.min(1, q.age / 0.4, (q.life - q.age) / 0.6);
+
+  function ambient(s, dt, opacity) {
+    if (!s.fxDrawn) claim(s);
+    const c = s.parts.fx, g = c.getContext("2d");
+    const W = s.boxW, H = s.boxH, k = W / 700;
+    const target = Math.round(BASE[s.fx.ambient] * (s.fx.amount ?? 1) * few * Math.min(2.2, Math.max(0.7, H / W)));
+    while (s.fxParts.length < target) s.fxParts.push(spawn(s, W, H, k));
+    g.setTransform(s.fxScale, 0, 0, s.fxScale, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const tint = s.fx.tint || "paper";
+    g.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
+    s.fxParts = s.fxParts.filter((q) => {
+      q.age += dt;
+      q.x += q.vx * dt + (q.sway ? Math.sin(q.age * q.freq * 6.28) * q.sway * dt : 0);
+      q.y += q.vy * dt;
+      if (q.age > q.life || q.y < -20 || q.x < -(q.len || 20)) return false;
+      if (s.fx.ambient === "embers") {
+        const flicker = 0.75 + 0.25 * Math.sin(q.age * 23 + q.x);
+        g.globalAlpha = lifeAlpha(q) * flicker * opacity;
+        const r = q.size * 4;
+        g.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
+      } else if (s.fx.ambient === "speed") {
+        g.globalAlpha = q.alpha * opacity;
+        g.fillStyle = `rgb(${TINTS[tint]})`;
+        g.fillRect(q.x, q.y, q.len, q.size);
+      } else {
+        g.globalAlpha = q.alpha * lifeAlpha(q) * opacity;
+        g.fillStyle = `rgb(${TINTS[tint]})`;
+        g.beginPath();
+        g.arc(q.x, q.y, q.size, 0, 6.283);
+        g.fill();
+      }
+      return true;
+    });
+    s.fxDrawn = true;
+  }
+
+  // a few big, soft particles in front of everything, moving faster: depth
+  function foreground(s, dt, opacity) {
+    if (!s || !s.fx || s.fx.ambient === "speed") { frontParts.length = 0; return; }
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const target = Math.round(10 * (s.fx.amount ?? 1) * few);
+    while (frontParts.length < target) frontParts.push({ x: rand(0, W), y: H * rand(0.3, 1.1), vx: rand(-20, 20),
+      vy: rand(-120, -40), size: rand(4, 10), life: rand(2, 5), age: 0 });
+    const tint = s.fx.tint || "paper";
+    fctx.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
+    for (let n = frontParts.length - 1; n >= 0; n--) {
+      const q = frontParts[n];
+      q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt;
+      if (q.age > q.life || q.y < -40) { frontParts.splice(n, 1); continue; }
+      fctx.globalAlpha = lifeAlpha(q) * opacity * (s.fx.ambient === "embers" ? 0.35 : 0.18);
+      const r = q.size * 3;
+      fctx.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
+    }
+  }
+
+  // impact bursts: every particle's path is fixed when the page loads, so any scroll position can be drawn
+  function seeded(seed) {
+    return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function makeBurst(b, seed) {
+    const r = seeded(seed), R = (a, z) => a + r() * (z - a), deg = Math.PI / 180;
+    const parts = [];
+    const add = (n, f) => { for (let i = 0; i < n; i++) parts.push(f()); };
+    if (b.type === "splinters") {
+      add(30, () => ({ kind: "chip", a: R(-170, -10) * deg, v: R(0.25, 0.75), g: 1.1, size: R(3, 9), life: R(0.5, 1), spin: R(-14, 14), tint: "wood" }));
+      add(10, () => ({ kind: "puff", a: R(-180, 0) * deg, v: R(0.04, 0.14), g: 0, size: R(14, 34), life: R(0.6, 1.1), tint: "paper" }));
+    } else if (b.type === "sparks") {
+      add(80, () => ({ kind: "streak", a: R(0, 360) * deg, v: R(0.4, 1.4), g: 0.7, size: R(1, 2.6), life: R(0.25, 0.8), tint: r() < 0.5 ? "spark" : "mana" }));
+      parts.push({ kind: "ring", life: 0.35, size: 0.35 });
+    } else if (b.type === "ring") {
+      add(26, () => ({ kind: "puff", a: R(0, 360) * deg, v: R(0.1, 0.3), g: 0, flat: 0.4, size: R(10, 22), life: R(0.4, 0.8), tint: "paper" }));
+      parts.push({ kind: "ring", life: 0.3, size: 0.22 });
+    } else if (b.type === "flare") {
+      add(60, () => ({ kind: "glow", a: R(-130, -50) * deg, v: R(0.2, 0.7), g: -0.15, size: R(2, 5), life: R(0.5, 1.3), tint: "mana" }));
+    }
+    b.parts = parts;
+    b.span = Math.max(...parts.map((q) => q.life));
+  }
+  SCENES.forEach((s, i) => (s.fx?.bursts || []).forEach((b, j) => makeBurst(b, 1000 * i + j + 1)));
+
+  function bursts(s, i, now, opacity) {
+    if (!s.fx?.bursts) return;
+    const p = (now - starts[i]) / s.length;
+    const rect = s.parts.frame.getBoundingClientRect(), home = stage.getBoundingClientRect();
+    const unit = rect.width, k = unit / 700;
+    for (const b of s.fx.bursts) {
+      const t = (p - b.at) * s.length / 22; // 22 units of scroll = one second of burst
+      if (t < 0 || t > b.span) continue;
+      const ox = rect.left - home.left + (b.from[0] / 100) * rect.width;
+      const oy = rect.top - home.top + (b.from[1] / 100) * rect.height;
+      for (const q of b.parts) {
+        if (t > q.life) continue;
+        const fade = Math.pow(1 - t / q.life, 1.2) * opacity;
+        if (q.kind === "ring") {
+          fctx.globalCompositeOperation = "lighter";
+          fctx.globalAlpha = fade * 0.8;
+          fctx.strokeStyle = "rgb(255,250,235)";
+          fctx.lineWidth = 3 * k;
+          fctx.beginPath();
+          fctx.arc(ox, oy, (t / q.life) * q.size * unit, 0, 6.283);
+          fctx.stroke();
+          continue;
+        }
+        const d = (q.v * (t - (0.35 * t * t) / q.life)) * unit;
+        const x = ox + Math.cos(q.a) * d;
+        const y = oy + Math.sin(q.a) * d * (q.flat || 1) + 0.5 * q.g * unit * t * t;
+        fctx.globalAlpha = fade;
+        if (q.kind === "streak") {
+          fctx.globalCompositeOperation = "lighter";
+          const back = 0.035 * q.v * unit;
+          fctx.strokeStyle = `rgb(${CORES[q.tint]})`;
+          fctx.lineWidth = q.size * k;
+          fctx.beginPath();
+          fctx.moveTo(x, y);
+          fctx.lineTo(x - Math.cos(q.a) * back, y - Math.sin(q.a) * back - q.g * unit * t * 0.035);
+          fctx.stroke();
+        } else if (q.kind === "chip") {
+          fctx.globalCompositeOperation = "source-over";
+          fctx.fillStyle = `rgb(${TINTS.wood})`;
+          fctx.save();
+          fctx.translate(x, y);
+          fctx.rotate(q.spin * t);
+          fctx.fillRect(-q.size * k, -q.size * k * 0.35, 2 * q.size * k, 0.7 * q.size * k);
+          fctx.restore();
+        } else {
+          const glowing = q.kind === "glow";
+          fctx.globalCompositeOperation = glowing ? "lighter" : "source-over";
+          fctx.globalAlpha = fade * (glowing ? 1 : 0.3);
+          const r = (glowing ? q.size * 4 : q.size * (1 + t / q.life)) * k;
+          fctx.drawImage(glow(q.tint), x - r, y - r, 2 * r, 2 * r);
+        }
+      }
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const clock = performance.now(), dt = Math.min(0.05, (clock - last) / 1000);
+    last = clock;
+    const box = document.getElementById("story").getBoundingClientRect();
+    if (box.bottom < 0 || box.top > innerHeight) return; // story off screen: nothing to draw
+    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fctx.clearRect(0, 0, front.width, front.height);
+    let lead = null, leadOpacity = 0;
+    SCENES.forEach((s, i) => {
+      const opacity = +gsap.getProperty(s.el, "opacity");
+      if (opacity < 0.02) {
+        if (s.fxDrawn) release(s);
+        return;
+      }
+      if (opacity > leadOpacity) { lead = s; leadOpacity = opacity; }
+      if (s.fx) ambient(s, dt, opacity);
+      bursts(s, i, now, opacity);
+    });
+    foreground(lead, dt, leadOpacity);
+    fctx.globalAlpha = 1;
+  }
+
+  return { resize, frame };
+}
+
+/* ---------------------------------------------------------------- sound
+   Off until the reader taps a Sound button (browsers block sound before that).
+   The sword effects are synthesised here, so they need no files; the music tracks are files in music/ (themes in series.js),
+   and the page simply stays quiet for any file that is not there yet. */
+function makeSound() {
+  const buttons = [...document.querySelectorAll("[data-sound]")];
+  let ctx = null, on = false, sfxGain, noise, last = 0;
+  const tracks = []; // one per MUSIC entry that loaded: its gain, the stretch of story it covers, its volume
+
+  function label() {
+    for (const b of buttons) {
+      b.setAttribute("aria-pressed", String(on));
+      b.querySelector(".label").textContent = on ? b.dataset.on : b.dataset.off;
+    }
+  }
+  async function load(path) {
+    try {
+      const res = await fetch(path);
+      return res.ok ? await ctx.decodeAudioData(await res.arrayBuffer()) : null;
+    } catch { return null; }
+  }
+  // where a track plays, in timeline time: from the start of `from` to the end of `to`
+  function span(m) {
+    const a = SCENES.findIndex((s) => s.id === m.from), z = m.to ? SCENES.findIndex((s) => s.id === m.to) : SCENES.length - 1;
+    return [starts[Math.max(0, a)] ?? 0, z < 0 || z >= SCENES.length - 1 ? total : starts[z + 1]];
+  }
+  async function start() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -10;
+    limiter.connect(ctx.destination);
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = 0.8;
+    sfxGain.connect(limiter);
+    noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const data = noise.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    await Promise.all(MUSIC.map(async (m) => {
+      const buffer = await load(m.src);
+      if (!buffer) return;
+      const src = ctx.createBufferSource(), gain = ctx.createGain();
+      gain.gain.value = 0;
+      src.buffer = buffer;
+      src.loop = true;
+      // some browsers keep the MP3 encoder's few ms of silence at each end; loop past it so there is no click
+      const d = buffer.getChannelData(0), edge = Math.min(d.length >> 1, 4096);
+      let a = 0, z = d.length - 1;
+      while (a < edge && Math.abs(d[a]) < 1e-3) a++;
+      while (z > d.length - edge && Math.abs(d[z]) < 1e-3) z--;
+      src.loopStart = a / buffer.sampleRate;
+      src.loopEnd = (z + 1) / buffer.sampleRate;
+      src.connect(gain).connect(limiter);
+      src.start(0, src.loopStart);
+      tracks.push({ gain, span: span(m), volume: m.volume ?? 0.5, level: -1 });
+    }));
+  }
+  async function toggle() {
+    on = !on;
+    label();
+    if (on && !ctx) await start();
+    if (ctx) on ? ctx.resume() : ctx.suspend();
+  }
+  buttons.forEach((b) => b.addEventListener("click", toggle));
+  document.addEventListener("visibilitychange", () => { if (ctx && on) document.hidden ? ctx.suspend() : ctx.resume(); });
+
+  // ---- synthesised sword effects
+  function noiseHit(t, type, f0, f1, q, attack, decay, peak) {
+    const src = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noise;
+    filter.type = type;
+    filter.Q.value = q;
+    filter.frequency.setValueAtTime(f0, t);
+    filter.frequency.exponentialRampToValueAtTime(f1, t + attack + decay);
+    envelope(g, t, attack, decay, peak);
+    src.connect(filter).connect(g).connect(sfxGain);
+    src.start(t, Math.random());
+    src.stop(t + attack + decay + 0.05);
+  }
+  function tone(t, type, f0, f1, attack, decay, peak) {
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(f0, t);
+    osc.frequency.exponentialRampToValueAtTime(f1, t + attack + decay);
+    envelope(g, t, attack, decay, peak);
+    osc.connect(g).connect(sfxGain);
+    osc.start(t);
+    osc.stop(t + attack + decay + 0.05);
+  }
+  function envelope(g, t, attack, decay, peak) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+  }
+  const EFFECTS = {
+    whoosh: (t) => noiseHit(t, "bandpass", 300, 2600, 1.2, 0.18, 0.45, 0.7),
+    swish: (t) => noiseHit(t, "bandpass", 900, 4200, 1.5, 0.05, 0.22, 0.6),
+    crack: (t) => { noiseHit(t, "bandpass", 2400, 1100, 2, 0.002, 0.12, 0.9); tone(t, "sine", 150, 55, 0.002, 0.28, 0.8);
+      noiseHit(t, "lowpass", 900, 250, 0.7, 0.005, 0.45, 0.35); },
+    grip: (t) => { tone(t, "sine", 120, 45, 0.003, 0.3, 0.9); noiseHit(t, "lowpass", 1600, 400, 0.7, 0.002, 0.16, 0.5); },
+    flame: (t) => { noiseHit(t, "lowpass", 220, 3400, 0.8, 0.35, 1.1, 0.6); tone(t, "sine", 70, 48, 0.2, 1.2, 0.5); },
+    clang: (t) => {
+      // a struck blade: inharmonic partials ringing out at different speeds, on a sharp attack
+      [[622, 1.4, 0.32], [1131, 1.1, 0.28], [1897, 0.8, 0.2], [2836, 0.6, 0.15], [3971, 0.45, 0.11], [5210, 0.3, 0.07]]
+        .forEach(([f, d, a]) => tone(t, "sine", f, f * 0.995, 0.002, d, a));
+      noiseHit(t, "highpass", 3000, 6000, 0.7, 0.001, 0.06, 0.8);
+      tone(t, "sine", 160, 60, 0.002, 0.22, 0.6);
+    },
+    // boots scraping across the arena floor
+    skid: (t) => { noiseHit(t, "bandpass", 1800, 700, 2.5, 0.03, 0.55, 0.45); noiseHit(t, "lowpass", 600, 200, 0.7, 0.02, 0.4, 0.3); },
+    // a light, quick footstep
+    tap: (t) => { tone(t, "sine", 210, 90, 0.002, 0.08, 0.55); noiseHit(t, "bandpass", 2600, 1500, 3, 0.001, 0.04, 0.35); },
+    // a heavy landing
+    thud: (t) => { tone(t, "sine", 95, 38, 0.004, 0.42, 1); noiseHit(t, "lowpass", 700, 120, 0.7, 0.004, 0.5, 0.6); },
+    // light catching an eye or a blade
+    glint: (t) => { tone(t, "sine", 2637, 2600, 0.004, 0.7, 0.18); tone(t + 0.05, "sine", 3951, 3900, 0.004, 0.5, 0.1); },
+  };
+
+  // follow the story: each track's level by position, effects as their moment passes going forward
+  function update(now) {
+    if (!ctx || !on) { last = now; return; }
+    for (const tr of tracks) {
+      // crossfade: in over 40 units around the start of its stretch, out over 60 around the end;
+      // the first track is already playing at the top, the last one has faded out by the end card
+      const [a, z] = tr.span;
+      const fadeIn = a <= 0 ? 1 : (now - a + 20) / 40;
+      const fadeOut = z >= total ? (z - now) / 60 : (z - now + 30) / 60;
+      const level = Math.min(1, Math.max(0, fadeIn)) * Math.min(1, Math.max(0, fadeOut)) * tr.volume;
+      if (Math.abs(level - tr.level) > 0.005) {
+        tr.gain.gain.setTargetAtTime(level, ctx.currentTime, 0.25);
+        tr.level = level;
+      }
+    }
+    if (now > last && now - last < 25) { // forward, and not a jump across the page
+      for (const cue of cues) {
+        if (cue.time <= last || cue.time > now) continue;
+        EFFECTS[cue.sfx]?.(ctx.currentTime + 0.01);
+      }
+    }
+    last = now;
+  }
+
+  return { update };
+}
+</script>
+</body>
+</html>
