@@ -81,7 +81,7 @@ registerChapter({
     { id: "panel_11", w: 940, h: 686, length: 170, enter: "zoom", exit: "fade",
       camera: { from: { scale: 1.12 }, to: { scale: 1 } },
       chars: { from: { x: -5, scale: 1.08 }, to: { x: 2, scale: 1 }, over: [0.05, 0.3] },
-      shakes: [0.22], sfx: [{ at: 0.2, sound: "swish" }, { at: 0.24, sound: "parry" }],
+      shakes: [0.22], sfx: [{ at: 0.2, sound: "swish" }, { at: 0.24, sound: "deflect" }],
       fx: { ambient: "embers", tint: "mana", amount: 0.9, bursts: [{ type: "sparks", at: 0.24, from: [62, 38] }] } },
 
     { id: "panel_12", w: 920, h: 541, length: 150, enter: "fade", exit: "fade",
@@ -200,7 +200,7 @@ registerChapter({
     { id: "panel_32", w: 940, h: 828, length: 170, enter: "fade", exit: "fade",
       camera: { from: { scale: 1.1 }, to: { scale: 1 } },
       chars: { from: { rotation: -3 }, to: { rotation: 1 }, over: [0.1, 0.35] },
-      shakes: [0.3], sfx: [{ at: 0.3, sound: "parry" }],
+      shakes: [0.3], sfx: [{ at: 0.3, sound: "deflect" }],
       fx: { ambient: "embers", tint: "mana", amount: 1, bursts: [{ type: "sparks", at: 0.3, from: [58, 40] }] } },
 
     { id: "panel_33", w: 940, h: 807, length: 180, enter: "fade", exit: "fade", origin: [50, 30],
@@ -256,7 +256,7 @@ registerChapter({
 
     { id: "panel_42", w: 899, h: 710, length: 160, enter: "fade", exit: "fade",
       camera: { from: { scale: 1.1, rotation: -2 }, to: { scale: 1, rotation: 0 } },
-      shakes: [0.26], sfx: [{ at: 0.26, sound: "parry" }],
+      shakes: [0.26], sfx: [{ at: 0.26, sound: "deflect" }],
       fx: { ambient: "embers", tint: "mana", amount: 0.9, bursts: [{ type: "sparks", at: 0.26, from: [56, 48] }] } },
 
     { id: "panel_43", w: 940, h: 907, length: 170, enter: "fade", exit: "cut",
@@ -278,7 +278,7 @@ registerChapter({
 
     { id: "panel_46", w: 940, h: 682, length: 150, enter: "cut", exit: "fade",
       camera: { from: { scale: 1.12 }, to: { scale: 1 } },
-      shakes: [0.16], flashes: [{ at: 0.14, color: "#e5202e", strength: 0.4 }], sfx: [{ at: 0.14, sound: "parry" }],
+      shakes: [0.16], flashes: [{ at: 0.14, color: "#e5202e", strength: 0.4 }], sfx: [{ at: 0.14, sound: "deflect" }],
       fx: { ambient: "speed", tint: "paper", amount: 0.6, bursts: [{ type: "sparks", at: 0.16, from: [40, 72] }] } },
 
     { id: "panel_47", w: 940, h: 1965, length: 280, fit: "pan", enter: "fade", exit: "fade",

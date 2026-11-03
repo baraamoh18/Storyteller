@@ -411,8 +411,11 @@ approves or leaves notes → chapter added to `series.js`.
    `chapter.js` from `chapter.json`; `--carry-over` keeps an old plan: on chapter 94 all 60 duel scenes land on panels 10–69,
    58 identical and 2 marked resized, leaving 30 new panels), and new engine effects for the finale: `shatter` burst (growing glass
    cracks + shards, scroll-scrubbed), flashes with `hold` / `rise` / `fall` (white-out), sounds `shatter`, `crash`, `gust`.
-   Sword sounds (user asked for a Sekiro-like deflect instead of CLANK): `parry` (bright 1.95 kHz inharmonic ring + click + scrape + arena echo),
-   `block` (heavier), `tink` (light); all 8 duel `clang` cues are now `parry`. Effects are built by top-level `makeEffects(ctx, out)`,
+   Sword sounds: the user supplied two recordings (Sekiro deflect and parry) to replace CLANK and the synthesised parry/block/tink
+   (removed). They were far too loud (-4 to -6 LUFS, peaks +3 dBFS) and started late: trimmed (0.21 / 0.47 s of silence), high shelf
+   -5 / -3 dB above ~4.5 kHz, levelled about 4 dB under the other sword effects; now `site/sfx/deflect.mp3` (0.74 s, bright) and
+   `site/sfx/parry.mp3` (1.58 s, heavier), listed in `SERIES.sounds`, played with ±2% pitch variation, falling back to `clang`.
+   Duel: deflect on panels 11, 32, 42, 46; parry on 9, 17, 52, 60. Lower-pitched versions (asetrate x0.89) were offered to the user. Effects are built by top-level `makeEffects(ctx, out)`,
    so they also render offline (OfflineAudioContext) for listening tests. Ring partials start up to 1.2 ms apart (aligned starts
    peaked at 1.4x); effects bus 0.65 → limiter (ratio 20, attack 1 ms) → tanh soft clip. Measured: parry/tink never clip, the old
    clang did (Chrome's compressor is not a brick wall).

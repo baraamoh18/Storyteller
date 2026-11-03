@@ -18,4 +18,10 @@ window.SERIES = {
     climax:      [{ src: "music/climax_1.mp3", volume: 0.75 }, { src: "music/climax_2.mp3", volume: 0.56 }], // war drums and choir
     // still to make (step 4): sad, eerie, triumph
   },
+
+  // recorded sound effects (in sfx/), used in scene plans like the synthesised ones: sfx: [{ at: 0.3, sound: "deflect" }]
+  sounds: {
+    deflect: { src: "sfx/deflect.mp3", volume: 1 }, // a quick, bright deflect: a blade turned aside
+    parry: { src: "sfx/parry.mp3", volume: 1 },     // a heavier parry with a longer ring: blades meeting with weight
+  },
 };
