@@ -47,7 +47,7 @@ tools/voices/
   make_voices.py                   makes the voice lines with Kokoro (kokoro-onnx), runs on a normal CPU
   .gitignore                       model files and out/ are not committed
 tools/music/
-  Make_Duel_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
+  Make_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
 series/cast.md                     the cast list (the user fills it in; Arthur and Geist filled as examples)
 site/
   index.html                       the reader: chapter menu + engine (CSS + JS in one file; GSAP from cdnjs); no chapter data
@@ -135,7 +135,9 @@ For the uploaded images (with `JOIN_SLICES = True` they are first stacked into o
 ### Known limits
 * Sound-effect lettering ("PRY", "CLENCH") stays in the characters layer, often half-transparent.
 * Background fills are a little smudgy where characters were.
-* Small eye-shaped false bubbles are possible. A possible fix: require at least 3 separate letter shapes inside a bubble.
+* ~~Small eye-shaped false bubbles~~ fixed (second session): a bubble now needs at least 2 letter-sized dark shapes inside and
+  almost no colour (≤ 5% of hole pixels with max−min > 60). On chapter 94 this removed 4 eyes and Sylvie's white fox face and
+  kept all 26 real bubbles (even "NO.", which has 3 shapes). Before the fix those false bubbles were cut out of the character layer.
 * Without a GPU, a joined chapter peaks around 12.7 GB of RAM, so keep High-RAM on.
 
 ### Problems already solved (do not reintroduce)
@@ -279,7 +281,7 @@ The user was sent the candidate takes (`<line>__<who>_<A|B|C>.mp3`) and has **no
 
 ### Music (not done)
 The user wants **both**:
-1. **AI-generated:** `tools/music/Make_Duel_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes six tracks (`academy_strings`, `academy_dark`, `fight_orchestral`, `fight_choir`, `fight_dark`, `fight_dark_epic`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
+1. **AI-generated:** `tools/music/Make_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes six tracks (`academy_strings`, `academy_dark`, `fight_orchestral`, `fight_choir`, `fight_dark`, `fight_dark_epic`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
 2. **Free to use:** the user downloads a track, e.g. from Pixabay Music ("epic battle", "anime fight") or the YouTube Audio Library (Cinematic, dramatic). The AI then trims or loops it into `site/assets/audio/fight.mp3`.
 
 There is no official per-chapter soundtrack for this webtoon.
@@ -318,7 +320,8 @@ There is no official per-chapter soundtrack for this webtoon.
 * The user's Colab currently runs **Python 3.13, CUDA 13** (PyPI torch is `+cu132`), `onnxruntime-gpu` 1.31.1 and rembg 2.0.86.
 
 **Keep files in sync**
-* After editing `split_layers.py`, regenerate the notebook cell that starts with `%%writefile split_layers.py` from the file.
+* After editing `split_layers.py` or `make_chapter.py`, run `python tools/build_notebooks.py`: it rebuilds `Make_Chapter.ipynb`
+  and refreshes the `%%writefile split_layers.py` cell of `Split_Manga_Layers.ipynb`.
 * The voice script reads model files from its own folder.
 
 **The AI's cloud environment** (for an AI in Claude Code on the web)
@@ -399,8 +402,26 @@ approves or leaves notes → chapter added to `series.js`.
 **Build order:**
 1. ✅ Scene plan out of `index.html` into `chapters/<id>/chapter.js`; `series.js`; chapter menu; music themes. Tested with Playwright:
    same panels and music as before; menu switching, a missing chapter and an unknown `#hash` all behave.
-2. `Make_Chapter` Colab notebook: CBZ in → `chapter_<id>.zip` out (WebP layers, bubbles, layers.json, contact sheets for the director).
-3. The director playbook (a skill in the repo) + cast list.
+2. ✅ (built, waiting for the user's first Colab run) `tools/make-chapter/Make_Chapter.ipynb` + `make_chapter.py`; see
+   `tools/make-chapter/README.md`. Chapter ids are 3-digit (`094`); chapters come from Drive `Storyteller/cbz`, zips go to
+   `Storyteller/chapters`. Chapter 94's CBZ: 70 pages, 000 = series title page, 069 = creators' promo page (both dropped
+   automatically); 92 panels (90, 91 tiny), 26 bubbles. New panels 10–69 = the old duel panels 1–60 (same art, offset by 9);
+   panels 1–9 are the new opening, 70–92 the new finale (TEMPEST, glass cracks, "S-stop!", CRASH, THUD, "Thank you for your guidance.").
+3. The director playbook (a skill in the repo) + cast list. Done so far: `tools/director/draft_chapter.py` (first-draft
+   `chapter.js` from `chapter.json`; `--carry-over` keeps an old plan: on chapter 94 all 60 duel scenes land on panels 10–69,
+   58 identical and 2 marked resized, leaving 30 new panels), and new engine effects for the finale: `shatter` burst (growing glass
+   cracks + shards, scroll-scrubbed), flashes with `hold` / `rise` / `fall` (white-out), sounds `shatter`, `crash`, `gust`.
+   Sword sounds: the user supplied two recordings (Sekiro deflect and parry) to replace CLANK and the synthesised parry/block/tink
+   (removed). They were far too loud (-4 to -6 LUFS, peaks +3 dBFS) and started late: trimmed (0.21 / 0.47 s of silence), high shelf
+   -5 / -3 dB above ~4.5 kHz, levelled about 4 dB under the other sword effects; now `site/sfx/deflect.mp3` (0.74 s, bright) and
+   `site/sfx/parry.mp3` (1.58 s, heavier), listed in `SERIES.sounds`, played with ±2% pitch variation, falling back to `clang`.
+   Duel: deflect on panels 11, 32, 42, 46; parry on 9, 17, 52, 60. The user chose the lower-pitched versions (asetrate x0.89,
+   about 2 semitones down and 12% slower): deflect 0.84 s, parry 1.77 s. Effects are built by top-level `makeEffects(ctx, out)`,
+   so they also render offline (OfflineAudioContext) for listening tests. Ring partials start up to 1.2 ms apart (aligned starts
+   peaked at 1.4x); effects bus 0.65 → limiter (ratio 20, attack 1 ms) → tanh soft clip. Measured: parry/tink never clip, the old
+   clang did (Chrome's compressor is not a brick wall).
+   Music: `tools/music/Make_Music.ipynb` (renamed from Make_Duel_Music) makes calm_2, tension_2, sad_1-2, eerie_1-2, triumph_1-2,
+   warm_1-2 for the library; waiting for the user's run.
 4. Music theme library: add `sad`, `eerie`, `triumph` (and second takes) via the music notebook + `make_loop.py`.
 5. A start file to read the whole series on the user's PC (local server; music needs it, file:// blocks fetch).
 

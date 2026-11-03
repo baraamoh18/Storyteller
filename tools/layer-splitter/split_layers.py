@@ -59,8 +59,21 @@ def find_bubbles(rgb):
         if not (0.02 < lettering < 0.45 and roundness > 0.45):
             continue
         # lettering is black ink; real bubbles score about 0.65 here, slashes and glows about 0
-        ink = (hi[box][filled & ~part] < 100).mean()
-        if ink > 0.3:
+        holes = filled & ~part
+        ink = (hi[box][holes] < 100).mean()
+        if ink <= 0.3:
+            continue
+        # lettering is several separate dark shapes in neutral ink. An eye's white has one dark shape
+        # (the pupil), and a white face (Sylvie's fox form) has coloured eyes: both are left in the art.
+        dark = holes & (hi[box] < 110)
+        letters, n = ndi.label(dark)
+        shapes = 0
+        for s, piece in enumerate(ndi.find_objects(letters), 1):
+            height = piece[0].stop - piece[0].start
+            if 5 <= height <= 70 and (letters[piece] == s).sum() >= 6:
+                shapes += 1
+        colourful = ((hi[box].astype(np.int16) - lo[box]) > 60)[holes].mean()
+        if shapes >= 2 and colourful <= 0.05:
             bubbles.append((box[0].start, box[1].start, filled))
     return bubbles
 
