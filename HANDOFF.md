@@ -411,6 +411,11 @@ approves or leaves notes → chapter added to `series.js`.
    `chapter.js` from `chapter.json`; `--carry-over` keeps an old plan: on chapter 94 all 60 duel scenes land on panels 10–69,
    58 identical and 2 marked resized, leaving 30 new panels), and new engine effects for the finale: `shatter` burst (growing glass
    cracks + shards, scroll-scrubbed), flashes with `hold` / `rise` / `fall` (white-out), sounds `shatter`, `crash`, `gust`.
+   Sword sounds (user asked for a Sekiro-like deflect instead of CLANK): `parry` (bright 1.95 kHz inharmonic ring + click + scrape + arena echo),
+   `block` (heavier), `tink` (light); all 8 duel `clang` cues are now `parry`. Effects are built by top-level `makeEffects(ctx, out)`,
+   so they also render offline (OfflineAudioContext) for listening tests. Ring partials start up to 1.2 ms apart (aligned starts
+   peaked at 1.4x); effects bus 0.65 → limiter (ratio 20, attack 1 ms) → tanh soft clip. Measured: parry/tink never clip, the old
+   clang did (Chrome's compressor is not a brick wall).
    Music: `tools/music/Make_Music.ipynb` (renamed from Make_Duel_Music) makes calm_2, tension_2, sad_1-2, eerie_1-2, triumph_1-2,
    warm_1-2 for the library; waiting for the user's run.
 4. Music theme library: add `sad`, `eerie`, `triumph` (and second takes) via the music notebook + `make_loop.py`.
