@@ -407,7 +407,12 @@ approves or leaves notes → chapter added to `series.js`.
    `Storyteller/chapters`. Chapter 94's CBZ: 70 pages, 000 = series title page, 069 = creators' promo page (both dropped
    automatically); 92 panels (90, 91 tiny), 26 bubbles. New panels 10–69 = the old duel panels 1–60 (same art, offset by 9);
    panels 1–9 are the new opening, 70–92 the new finale (TEMPEST, glass cracks, "S-stop!", CRASH, THUD, "Thank you for your guidance.").
-3. The director playbook (a skill in the repo) + cast list.
+3. The director playbook (a skill in the repo) + cast list. Done so far: `tools/director/draft_chapter.py` (first-draft
+   `chapter.js` from `chapter.json`; `--carry-over` keeps an old plan: on chapter 94 all 60 duel scenes land on panels 10–69,
+   58 identical and 2 marked resized, leaving 30 new panels), and new engine effects for the finale: `shatter` burst (growing glass
+   cracks + shards, scroll-scrubbed), flashes with `hold` / `rise` / `fall` (white-out), sounds `shatter`, `crash`, `gust`.
+   Music: `tools/music/Make_Music.ipynb` (renamed from Make_Duel_Music) makes calm_2, tension_2, sad_1-2, eerie_1-2, triumph_1-2,
+   warm_1-2 for the library; waiting for the user's run.
 4. Music theme library: add `sad`, `eerie`, `triumph` (and second takes) via the music notebook + `make_loop.py`.
 5. A start file to read the whole series on the user's PC (local server; music needs it, file:// blocks fetch).
 

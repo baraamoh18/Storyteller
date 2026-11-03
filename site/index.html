@@ -508,9 +508,11 @@ function buildTimeline() {
         duration: 5 * d }, at(m));
     });
     (s.flashes || []).forEach((f) => {
+      // a blink by default; `hold` keeps it at full strength for a while (a white-out), `rise` / `fall` set the fades
+      const rise = (f.rise ?? 0.02) * L, hold = (f.hold ?? 0) * L, fall = (f.fall ?? 0.07) * L;
       tl.set(flash, { backgroundColor: f.color }, at(f.at))
-        .fromTo(flash, { opacity: 0 }, { opacity: f.strength ?? 0.85, duration: 0.02 * L }, at(f.at))
-        .to(flash, { opacity: 0, duration: 0.07 * L }, at(f.at) + 0.02 * L);
+        .fromTo(flash, { opacity: 0 }, { opacity: f.strength ?? 0.85, duration: rise }, at(f.at))
+        .to(flash, { opacity: 0, duration: fall }, at(f.at) + rise + hold);
     });
 
     // exit
@@ -695,6 +697,25 @@ function makeParticles() {
       parts.push({ kind: "ring", life: 0.3, size: 0.22 });
     } else if (b.type === "flare") {
       add(60, () => ({ kind: "glow", a: R(-130, -50) * deg, v: R(0.2, 0.7), g: -0.15, size: R(2, 5), life: R(0.5, 1.3), tint: "mana" }));
+    } else if (b.type === "shatter") {
+      // glass cracks: jagged lines that grow out from the impact and stay a while, with branches; shards fly off
+      const crack = (a0, len, steps, life) => {
+        const pts = [[0, 0]];
+        let ang = a0, x = 0, y = 0;
+        for (let s = 0; s < steps; s++) { ang += R(-22, 22) * deg; x += Math.cos(ang) * len / steps; y += Math.sin(ang) * len / steps; pts.push([x, y]); }
+        return { kind: "crack", pts, life, grow: R(0.08, 0.22), width: R(1.2, 2.6) };
+      };
+      const rays = 11;
+      for (let n = 0; n < rays; n++) {
+        const main = crack((n / rays) * 360 * deg + R(-12, 12) * deg, R(0.3, 0.7), 8, 2.2);
+        parts.push(main);
+        const fork = main.pts[3 + Math.floor(r() * 3)], branch = crack(Math.atan2(fork[1], fork[0]) + R(-60, 60) * deg, R(0.08, 0.2), 4, 2.2);
+        branch.pts = branch.pts.map(([x, y]) => [x + fork[0], y + fork[1]]);
+        branch.delay = 0.06;
+        parts.push(branch);
+      }
+      add(46, () => ({ kind: "shard", a: R(0, 360) * deg, v: R(0.3, 1.2), g: 0.9, size: R(4, 12), life: R(0.5, 1.2), spin: R(-12, 12) }));
+      parts.push({ kind: "ring", life: 0.3, size: 0.45 });
     }
     b.parts = parts;
     b.span = Math.max(...parts.map((q) => q.life));
@@ -714,6 +735,28 @@ function makeParticles() {
       for (const q of b.parts) {
         if (t > q.life) continue;
         const fade = Math.pow(1 - t / q.life, 1.2) * opacity;
+        if (q.kind === "crack") {
+          const grown = Math.min(1, Math.max(0, (t - (q.delay || 0)) / q.grow)), shown = grown * (q.pts.length - 1);
+          if (shown <= 0) continue;
+          const path = () => {
+            fctx.beginPath();
+            fctx.moveTo(ox + q.pts[0][0] * unit, oy + q.pts[0][1] * unit);
+            for (let n = 1; n <= Math.ceil(shown); n++) {
+              const f = Math.min(1, shown - (n - 1)), [x0, y0] = q.pts[n - 1], [x1, y1] = q.pts[n];
+              fctx.lineTo(ox + (x0 + (x1 - x0) * f) * unit, oy + (y0 + (y1 - y0) * f) * unit);
+            }
+          };
+          fctx.globalCompositeOperation = "source-over";
+          fctx.globalAlpha = Math.pow(1 - t / q.life, 0.5) * opacity; // cracks stay, then fade late
+          fctx.lineJoin = "round";
+          fctx.strokeStyle = "rgba(10,8,14,0.65)";
+          fctx.lineWidth = (q.width + 2.2) * k;
+          path(); fctx.stroke();
+          fctx.strokeStyle = "rgb(250,252,255)";
+          fctx.lineWidth = q.width * k;
+          path(); fctx.stroke();
+          continue;
+        }
         if (q.kind === "ring") {
           fctx.globalCompositeOperation = "lighter";
           fctx.globalAlpha = fade * 0.8;
@@ -737,6 +780,19 @@ function makeParticles() {
           fctx.moveTo(x, y);
           fctx.lineTo(x - Math.cos(q.a) * back, y - Math.sin(q.a) * back - q.g * unit * t * 0.035);
           fctx.stroke();
+        } else if (q.kind === "shard") {
+          fctx.globalCompositeOperation = "lighter";
+          fctx.fillStyle = `rgb(${CORES.paper})`;
+          fctx.save();
+          fctx.translate(x, y);
+          fctx.rotate(q.spin * t);
+          fctx.beginPath();
+          fctx.moveTo(0, -q.size * k);
+          fctx.lineTo(q.size * k * 0.45, q.size * k * 0.6);
+          fctx.lineTo(-q.size * k * 0.4, q.size * k * 0.3);
+          fctx.closePath();
+          fctx.fill();
+          fctx.restore();
         } else if (q.kind === "chip") {
           fctx.globalCompositeOperation = "source-over";
           fctx.fillStyle = `rgb(${TINTS.wood})`;
@@ -897,6 +953,17 @@ function makeSound() {
     thud: (t) => { tone(t, "sine", 95, 38, 0.004, 0.42, 1); noiseHit(t, "lowpass", 700, 120, 0.7, 0.004, 0.5, 0.6); },
     // light catching an eye or a blade
     glint: (t) => { tone(t, "sine", 2637, 2600, 0.004, 0.7, 0.18); tone(t + 0.05, "sine", 3951, 3900, 0.004, 0.5, 0.1); },
+    // breaking glass: a sharp burst, then a scatter of high, ringing pings
+    shatter: (t) => {
+      noiseHit(t, "highpass", 3500, 7000, 0.7, 0.001, 0.25, 0.9);
+      [[2900, 0.45], [4100, 0.35], [5300, 0.3], [6700, 0.25], [3500, 0.4], [4700, 0.3]]
+        .forEach(([f, d], n) => tone(t + n * 0.035 + Math.random() * 0.02, "sine", f, f * 0.99, 0.002, d, 0.12));
+    },
+    // a huge impact: a deep boom under a crackling burst
+    crash: (t) => { tone(t, "sine", 80, 30, 0.005, 0.9, 1); noiseHit(t, "lowpass", 2500, 200, 0.7, 0.005, 0.9, 0.8);
+      noiseHit(t, "bandpass", 3000, 1500, 1, 0.002, 0.3, 0.5); },
+    // a rush of wind building and passing
+    gust: (t) => { noiseHit(t, "bandpass", 200, 1800, 0.9, 0.4, 1.2, 0.7); noiseHit(t + 0.15, "bandpass", 600, 3000, 1.4, 0.3, 0.8, 0.35); },
   };
 
   // follow the story: each track's level by position, effects as their moment passes going forward
