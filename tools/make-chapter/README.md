@@ -1,0 +1,34 @@
+# Make chapters
+
+`Make_Chapter.ipynb` (Colab, T4 GPU + High-RAM) turns chapter CBZ files into ready-to-direct chapters.
+It carries `make_chapter.py` and `../layer-splitter/split_layers.py`; rebuild it with `python tools/build_notebooks.py`
+after changing either script.
+
+**Drive layout:** `MyDrive/Storyteller/cbz/*.cbz` in, `MyDrive/Storyteller/chapters/chapter_<id>.zip` out.
+
+**Per chapter** (`make_chapter.py --cbz-dir … --out … --chapters 1-5,94`):
+
+1. finds the CBZ by its number (`..._94_-_Chapter_94.cbz` → chapter `94`, id `094`; `94.5` → `094-5`);
+2. drops the series title page and the creators' promo page: the first two and last two pages are compared with
+   fingerprints taken from chapter 94 (`NON_STORY`); `--skip '{"94": [0, 69]}'` drops pages by hand;
+3. joins the pages and runs `split_layers.split_image`;
+4. converts to WebP (backgrounds q80, characters q85, bubbles q90, `method=6`), assigns each bubble to a panel
+   (never a tiny one), and draws overview sheets;
+5. writes `chapter_<id>.zip` (built locally, then moved into place whole). Chapters with a zip are skipped unless `--redo`.
+
+**The zip** holds `<id>/`:
+
+| File | What |
+|---|---|
+| `panel_XX_background.webp`, `panel_XX_characters.webp` | the layers |
+| `bubble_XX.webp` | the speech bubbles |
+| `chapter.json` | number, source file, dropped pages, strip size, panels (`x, y, width, height, tiny`), bubbles (`panel`, `x, y, w, h` in that panel's pixels, `between_panels`, `suspect`) |
+| `sheets/pages.jpg` | every page, dropped ones crossed out |
+| `sheets/panels_XX-YY.jpg` | the original panels, five per sheet, numbered |
+| `sheets/bubbles.jpg` | every bubble with the panel it belongs to |
+
+`tiny` panels (under 120 px on a side or 40,000 px²) are crumbs the panel finder picks up, such as a flash fragment
+or the tail of a bubble; the director skips them. `suspect` bubbles are small ones worth a second look.
+
+Tested here on chapter 94 with stand-in models (no GPU): 70 pages, title and promo dropped, 92 panels (2 tiny), 26 bubbles,
+all real, about 3.5 minutes without the AI models.

@@ -135,7 +135,9 @@ For the uploaded images (with `JOIN_SLICES = True` they are first stacked into o
 ### Known limits
 * Sound-effect lettering ("PRY", "CLENCH") stays in the characters layer, often half-transparent.
 * Background fills are a little smudgy where characters were.
-* Small eye-shaped false bubbles are possible. A possible fix: require at least 3 separate letter shapes inside a bubble.
+* ~~Small eye-shaped false bubbles~~ fixed (second session): a bubble now needs at least 2 letter-sized dark shapes inside and
+  almost no colour (≤ 5% of hole pixels with max−min > 60). On chapter 94 this removed 4 eyes and Sylvie's white fox face and
+  kept all 26 real bubbles (even "NO.", which has 3 shapes). Before the fix those false bubbles were cut out of the character layer.
 * Without a GPU, a joined chapter peaks around 12.7 GB of RAM, so keep High-RAM on.
 
 ### Problems already solved (do not reintroduce)
@@ -318,7 +320,8 @@ There is no official per-chapter soundtrack for this webtoon.
 * The user's Colab currently runs **Python 3.13, CUDA 13** (PyPI torch is `+cu132`), `onnxruntime-gpu` 1.31.1 and rembg 2.0.86.
 
 **Keep files in sync**
-* After editing `split_layers.py`, regenerate the notebook cell that starts with `%%writefile split_layers.py` from the file.
+* After editing `split_layers.py` or `make_chapter.py`, run `python tools/build_notebooks.py`: it rebuilds `Make_Chapter.ipynb`
+  and refreshes the `%%writefile split_layers.py` cell of `Split_Manga_Layers.ipynb`.
 * The voice script reads model files from its own folder.
 
 **The AI's cloud environment** (for an AI in Claude Code on the web)
@@ -399,7 +402,11 @@ approves or leaves notes → chapter added to `series.js`.
 **Build order:**
 1. ✅ Scene plan out of `index.html` into `chapters/<id>/chapter.js`; `series.js`; chapter menu; music themes. Tested with Playwright:
    same panels and music as before; menu switching, a missing chapter and an unknown `#hash` all behave.
-2. `Make_Chapter` Colab notebook: CBZ in → `chapter_<id>.zip` out (WebP layers, bubbles, layers.json, contact sheets for the director).
+2. ✅ (built, waiting for the user's first Colab run) `tools/make-chapter/Make_Chapter.ipynb` + `make_chapter.py`; see
+   `tools/make-chapter/README.md`. Chapter ids are 3-digit (`094`); chapters come from Drive `Storyteller/cbz`, zips go to
+   `Storyteller/chapters`. Chapter 94's CBZ: 70 pages, 000 = series title page, 069 = creators' promo page (both dropped
+   automatically); 92 panels (90, 91 tiny), 26 bubbles. New panels 10–69 = the old duel panels 1–60 (same art, offset by 9);
+   panels 1–9 are the new opening, 70–92 the new finale (TEMPEST, glass cracks, "S-stop!", CRASH, THUD, "Thank you for your guidance.").
 3. The director playbook (a skill in the repo) + cast list.
 4. Music theme library: add `sad`, `eerie`, `triumph` (and second takes) via the music notebook + `make_loop.py`.
 5. A start file to read the whole series on the user's PC (local server; music needs it, file:// blocks fetch).
