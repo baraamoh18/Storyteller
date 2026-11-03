@@ -21,7 +21,7 @@ window.SERIES = {
 
   // recorded sound effects (in sfx/), used in scene plans like the synthesised ones: sfx: [{ at: 0.3, sound: "deflect" }]
   sounds: {
-    deflect: { src: "sfx/deflect.mp3", volume: 1 }, // a quick, bright deflect: a blade turned aside
-    parry: { src: "sfx/parry.mp3", volume: 1 },     // a heavier parry with a longer ring: blades meeting with weight
+    deflect: { src: "sfx/deflect.mp3", volume: 1 }, // a quick, bright deflect: a blade turned aside (pitched about 2 notes down)
+    parry: { src: "sfx/parry.mp3", volume: 1 },     // a heavier parry with a longer ring: blades meeting with weight (pitched down too)
   },
 };

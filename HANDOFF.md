@@ -415,7 +415,8 @@ approves or leaves notes → chapter added to `series.js`.
    (removed). They were far too loud (-4 to -6 LUFS, peaks +3 dBFS) and started late: trimmed (0.21 / 0.47 s of silence), high shelf
    -5 / -3 dB above ~4.5 kHz, levelled about 4 dB under the other sword effects; now `site/sfx/deflect.mp3` (0.74 s, bright) and
    `site/sfx/parry.mp3` (1.58 s, heavier), listed in `SERIES.sounds`, played with ±2% pitch variation, falling back to `clang`.
-   Duel: deflect on panels 11, 32, 42, 46; parry on 9, 17, 52, 60. Lower-pitched versions (asetrate x0.89) were offered to the user. Effects are built by top-level `makeEffects(ctx, out)`,
+   Duel: deflect on panels 11, 32, 42, 46; parry on 9, 17, 52, 60. The user chose the lower-pitched versions (asetrate x0.89,
+   about 2 semitones down and 12% slower): deflect 0.84 s, parry 1.77 s. Effects are built by top-level `makeEffects(ctx, out)`,
    so they also render offline (OfflineAudioContext) for listening tests. Ring partials start up to 1.2 ms apart (aligned starts
    peaked at 1.4x); effects bus 0.65 → limiter (ratio 20, attack 1 ms) → tanh soft clip. Measured: parry/tink never clip, the old
    clang did (Chrome's compressor is not a brick wall).
