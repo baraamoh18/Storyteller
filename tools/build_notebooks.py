@@ -77,7 +77,10 @@ CBZ, OUT = f'{ROOT}/cbz', f'{ROOT}/chapters'
 if not os.path.isdir(CBZ):
     raise SystemExit(f'Make a folder "{DRIVE_FOLDER}/cbz" in your Google Drive and put the CBZ files in it, then Run all again.')
 os.makedirs(OUT, exist_ok=True)
-print(f"{sum(f.lower().endswith('.cbz') for f in os.listdir(CBZ))} CBZ files in {DRIVE_FOLDER}/cbz")"""),
+count = sum(f.lower().endswith('.cbz') for _, _, names in os.walk(CBZ) for f in names)
+print(f"{count} CBZ files in {DRIVE_FOLDER}/cbz")
+if count == 0:
+    raise SystemExit(f'No CBZ files found in "{DRIVE_FOLDER}/cbz" in your Google Drive. Put them there, then Run all again.')"""),
         md("""### Step 3: install the tools (about 1 minute)
 If a red pip message about "dependency conflicts" shows up, it is harmless."""),
         code(install),

@@ -306,8 +306,9 @@ def main():
     out_root.mkdir(parents=True, exist_ok=True)
 
     found = {}
-    for f in sorted(cbz_dir.iterdir(), key=lambda p: natural_key(p.name)):
-        if f.suffix.lower() in {".cbz", ".zip"}:
+    # also in subfolders, in case the files were uploaded inside a folder of their own
+    for f in sorted(cbz_dir.rglob("*"), key=lambda p: natural_key(p.name)):
+        if f.suffix.lower() in {".cbz", ".zip"} and f.is_file():
             n = chapter_number(f)
             if n is not None and wanted(n):
                 found.setdefault(n, f)
