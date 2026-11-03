@@ -55,7 +55,7 @@ in `music/` with a `volume` that evens out loudness. When a chapter uses a theme
 | `battle_dark` | 2 | heavy bass, trap drums |
 | `climax` | 2 | war drums and choir |
 
-Planned: `sad`, `eerie`, `triumph`. Make takes with `tools/music/Make_Duel_Music.ipynb`, then loop them with `tools/music/make_loop.py`.
+Planned: `sad`, `eerie`, `triumph`. Make takes with `tools/music/Make_Music.ipynb`, then loop them with `tools/music/make_loop.py`.
 
 ## Sound
 

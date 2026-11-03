@@ -47,7 +47,7 @@ tools/voices/
   make_voices.py                   makes the voice lines with Kokoro (kokoro-onnx), runs on a normal CPU
   .gitignore                       model files and out/ are not committed
 tools/music/
-  Make_Duel_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
+  Make_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
 series/cast.md                     the cast list (the user fills it in; Arthur and Geist filled as examples)
 site/
   index.html                       the reader: chapter menu + engine (CSS + JS in one file; GSAP from cdnjs); no chapter data
@@ -281,7 +281,7 @@ The user was sent the candidate takes (`<line>__<who>_<A|B|C>.mp3`) and has **no
 
 ### Music (not done)
 The user wants **both**:
-1. **AI-generated:** `tools/music/Make_Duel_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes six tracks (`academy_strings`, `academy_dark`, `fight_orchestral`, `fight_choir`, `fight_dark`, `fight_dark_epic`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
+1. **AI-generated:** `tools/music/Make_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes six tracks (`academy_strings`, `academy_dark`, `fight_orchestral`, `fight_choir`, `fight_dark`, `fight_dark_epic`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
 2. **Free to use:** the user downloads a track, e.g. from Pixabay Music ("epic battle", "anime fight") or the YouTube Audio Library (Cinematic, dramatic). The AI then trims or loops it into `site/assets/audio/fight.mp3`.
 
 There is no official per-chapter soundtrack for this webtoon.
