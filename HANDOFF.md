@@ -407,6 +407,11 @@ approves or leaves notes → chapter added to `series.js`.
    `Storyteller/chapters`. Chapter 94's CBZ: 70 pages, 000 = series title page, 069 = creators' promo page (both dropped
    automatically); 92 panels (90, 91 tiny), 26 bubbles. New panels 10–69 = the old duel panels 1–60 (same art, offset by 9);
    panels 1–9 are the new opening, 70–92 the new finale (TEMPEST, glass cracks, "S-stop!", CRASH, THUD, "Thank you for your guidance.").
+2b. Speed (the user asked how to make the whole series faster; **they want both cutout models kept, no single-model mode**):
+   Kaggle notebook (2× T4 in parallel, unattended, resumable), PC kit for the user's **RTX 5050** (Blackwell: torch cu128;
+   CUDA → CUDA 12 build → DirectML fallbacks), per-step timers. Processing only has to stay ahead of directing.
+   GitHub delivery (Colab/Kaggle push zips to a private `Storyteller-data` repo) was proposed, not yet approved.
+   **The Storyteller repo is public** (checked: API answers without auth); the user was advised to make it private.
 3. The director playbook (a skill in the repo) + cast list. Done so far: `tools/director/draft_chapter.py` (first-draft
    `chapter.js` from `chapter.json`; `--carry-over` keeps an old plan: on chapter 94 all 60 duel scenes land on panels 10–69,
    58 identical and 2 marked resized, leaving 30 new panels), and new engine effects for the finale: `shatter` burst (growing glass
