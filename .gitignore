@@ -1,5 +1,5 @@
 __pycache__/
 dist/
 
-# chapter images stay out of the project (the duel folder, from before, is still tracked until it is retired)
+# chapter images stay out of the project: they come from the chapter zips
 site/chapters/*/*.webp

@@ -7,7 +7,7 @@ The page shows a chapter menu on its title card; each chapter plays as one long 
 
 Open `index.html` through a local web server: run `python -m http.server` in this folder and open <http://localhost:8000>.
 (Double-clicking the file shows the panels, but browsers block the music when a page is opened as a file.)
-It needs an internet connection for GSAP and the fonts. `index.html#duel` opens the chapter with the id `duel`.
+It needs an internet connection for GSAP and the fonts. `index.html#094` opens the chapter with the id `094`.
 
 ## On the user's PC (and phone)
 
@@ -77,6 +77,6 @@ People who prefer reduced motion get the panels as a plain column instead.
 
 ## Assets
 
-Backgrounds are WebP at quality 80, characters at 85, bubbles at 90 (`method=6`), about 6 MB per chapter.
+Backgrounds are WebP at quality 80, characters at 85, bubbles at 90 (`method=6`), about 10 MB per chapter.
+Chapter images are not in git (`.gitignore`): they come from the chapter zips and go to the user in reader packs.
 Each panel's images only load when the reader gets close, and its particle canvas only exists while it is on screen.
-`chapters/duel/bubble_18.webp` (panel 65) is ready for when the last panels of that chapter come in.

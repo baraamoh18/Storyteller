@@ -17,4 +17,4 @@ in order (longest common run), then leftover panels in a gap are paired by posit
 Bubbles keep their old timing when one sits within 12 px of the old position; others are marked as new.
 Old music stretches move to the new panel names.
 
-Tested on chapter 94 against the 60-panel duel: all 60 carried over onto panels 10–69 (58 identical, 2 resized), 30 new panels left to direct.
+Tested on chapter 94 against the old 60-panel duel cut (removed after 094 was approved; it is in git history before commit after `45b9025`): all 60 carried over onto panels 10–69 (58 identical, 2 resized), 30 new panels left to direct.
