@@ -3,6 +3,7 @@
     python tools/reader/build_reader.py                 # dist/Storyteller-Reader.zip: the reader, with the chapters in series.js
     python tools/reader/build_reader.py --pack 094      # dist/reader-pack_094.zip: chapters to drop into "new chapters"
     python tools/reader/build_reader.py --pack 094 --with-reader   # the same, plus the newest reader page (index.html, series.js)
+    python tools/reader/build_reader.py --site          # dist/Storyteller-Site.zip: the reader as a website, for Cloudflare Pages
 
 The chapter images are not in git: they come from the chapter zips (put them in site/chapters/<id>/ first).
 """
@@ -41,14 +42,32 @@ def reader_files():
             yield p, f"{folder}/{p.name}"
 
 
+# for the website: open to anyone with the address, but kept out of search engines
+SITE_HEADERS = """/*
+  X-Robots-Tag: noindex, nofollow, noimageindex
+"""
+ROBOTS = "User-agent: *\nDisallow: /\n"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pack", nargs="+", metavar="ID", help="make a reader pack with these chapters")
     parser.add_argument("--with-reader", action="store_true", help="put the reader page and series.js in the pack too")
+    parser.add_argument("--site", action="store_true", help="make the website zip (reader files at the top, no PC tools)")
     args = parser.parse_args()
     DIST.mkdir(exist_ok=True)
 
-    if args.pack:
+    if args.site:
+        out = DIST / "Storyteller-Site.zip"
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            for p, name in reader_files():
+                z.write(p, name)
+            for cid in series_chapters():
+                for p in chapter_files(cid):
+                    z.write(p, f"chapters/{cid}/{p.name}", zipfile.ZIP_STORED)
+            z.writestr("_headers", SITE_HEADERS)
+            z.writestr("robots.txt", ROBOTS)
+    elif args.pack:
         out = DIST / f"reader-pack_{'_'.join(args.pack)}.zip"
         with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:  # WebP and MP3 are already compressed
             for cid in args.pack:

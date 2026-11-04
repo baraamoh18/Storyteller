@@ -18,6 +18,11 @@ answers `__chapters.js` (the chapter menu, read from the chapters folder, so pac
 `__phone.json` (the address shown with a QR code on the PC's title card). New chapters go out as packs:
 `build_reader.py --pack 094` writes `dist/reader-pack_094.zip` (`--with-reader` adds the newest `index.html` and `series.js`).
 
+**The website for friends** (Cloudflare Pages, uploaded by the user by drag and drop, no sign-in by the user's choice):
+`build_reader.py --site` writes `dist/Storyteller-Site.zip`: the reader files at the top, the chapters in `series.js`, and
+`_headers` + `robots.txt` that keep it out of search engines. Each new chapter: add it to `series.js`, rebuild, and the
+user uploads the zip as a new deployment of the same project.
+
 ## Layout
 
 ```
