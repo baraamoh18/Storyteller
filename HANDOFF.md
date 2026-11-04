@@ -299,6 +299,12 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
 6b. **Website for friends:** the user chose Cloudflare Pages, public, **no sign-in** (they declined Cloudflare Access; they were
    told about the copyright risk). `build_reader.py --site` → `dist/Storyteller-Site.zip`, uploaded by the user (drag and drop);
    noindex headers + robots.txt. The Cloudflare docs host is blocked here, so the click path given was from memory.
+6c. **LinkedIn demo** (third session): public demo cut `site/chapters/094-demo` (19 panels, made with
+   `tools/director/cut_chapter.py`), credit line in `SERIES.credit`, `build_reader.py --site --chapters 094-demo --public
+   https://tbate-scroll-demo.pages.dev --cover site/chapters/094-demo/cover.jpg --out Storyteller-Demo.zip` (preview tags; no
+   robots block, LinkedIn's crawler obeys robots.txt). Video: `tools/reader/record_demo.js` (Playwright, fake clock, 30 fps,
+   1080x1350) + music mixed in numpy from the site loops (tension 0-14.9 s, climax from 12.9 s, calm from 46.4 s), loudnorm
+   -14 LUFS. ffmpeg's `-stream_loop` on the MP3 loops made a click: loop the decoded samples instead.
 7. **Optional, needs the user's yes:** automatic delivery through a private `Storyteller-data` repo.
 8. **Later:** voices; dialogue chapters in "light" directing mode.
 

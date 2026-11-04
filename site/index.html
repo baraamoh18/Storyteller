@@ -228,6 +228,10 @@ body {
 .chapter-list a[aria-current="page"] .num { color: var(--red); }
 .chapter-list a[aria-current="page"] .name { text-shadow: 2px 2px 0 var(--red); }
 .notice { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+/* the original work's creators, and who made this reader (SERIES.credit) */
+.credit { color: var(--muted); font-size: 15px; line-height: 1.45; max-width: 30rem; padding-left: 12px; border-left: 2px solid var(--red); }
+.credit[hidden] { display: none; }
+.credit strong { color: var(--paper); font-weight: 600; }
 
 /* ---------- "read on your phone" (only on the PC reader, opened as localhost) ---------- */
 .phone { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 14px; border: 1px solid rgba(241, 236, 228, 0.25); background: var(--ink-2); }
@@ -250,6 +254,7 @@ body {
   <p class="eyebrow">Storyteller <b>/</b> <span class="series-title">The Beginning After the End</span></p>
   <h1 class="headline chapter-title">The Duel</h1>
   <p class="lede">Each panel is split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the chapter; scroll back to rewind it. Turn the sound on for the music and the sword effects.</p>
+  <p class="credit" hidden></p>
   <div class="actions">
     <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
     <a class="sound playlist" href="https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe" target="_blank" rel="noopener">Reading playlist <span class="arrow" aria-hidden="true">↗</span></a>
@@ -283,6 +288,7 @@ body {
 <footer class="card">
   <p class="eyebrow end-label">End of the chapter</p>
   <p class="headline end-title">To be continued</p>
+  <p class="credit" hidden></p>
   <div class="actions">
     <a class="sound next-chapter" href="#" hidden>Next chapter <span class="arrow" aria-hidden="true">→</span></a>
     <button class="sound to-menu" type="button">All chapters <span class="arrow" aria-hidden="true">↑</span></button>
@@ -318,6 +324,12 @@ window.addEventListener("hashchange", () => {
 
 const label = (c) => (c.number != null ? `Ch. ${c.number}` : "Ch. —");
 document.querySelector(".series-title").textContent = SERIES.title;
+// the credit line: the original work's creators, then who made this (plain text; **bold** for names)
+if (SERIES.credit) document.querySelectorAll(".credit").forEach((el) => {
+  el.textContent = SERIES.credit;
+  el.innerHTML = el.innerHTML.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  el.hidden = false;
+});
 const playlist = document.querySelector(".playlist");
 if (SERIES.playlist) playlist.href = SERIES.playlist; else playlist.hidden = true;
 document.querySelector(".chapter-list").innerHTML = SERIES.chapters.map((c) =>

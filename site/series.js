@@ -3,6 +3,9 @@
 window.SERIES = {
   title: "The Beginning After the End",
   playlist: "https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe", // the fans' reading playlist
+  // shown on the title and end cards; **bold** marks names
+  credit: "**The Beginning After the End**: story by **TurtleMe**, art by **Fuyuki23**, published by Tapas. " +
+    "A non-commercial fan tech demo by **Baraa**, built with AI. All rights to the original work belong to its creators.",
 
   chapters: [
     { id: "094", title: "The Duel", number: 94, panels: 90 },

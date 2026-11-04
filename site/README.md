@@ -23,6 +23,10 @@ answers `__chapters.js` (the chapter menu, read from the chapters folder, so pac
 `_headers` + `robots.txt` that keep it out of search engines. Each new chapter: add it to `series.js`, rebuild, and the
 user uploads the zip as a new deployment of the same project.
 
+**The public demo** (for LinkedIn): `chapters/094-demo` is a 19-panel cut of 094 (`tools/director/cut_chapter.py`), built with
+`--public <its address> --cover <1200x627 JPEG>`, which adds the link-preview tags and leaves search engines allowed.
+`SERIES.credit` (series.js) puts the original work's creators and this project's maker on the title and end cards.
+
 ## Layout
 
 ```

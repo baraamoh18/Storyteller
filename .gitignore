@@ -3,3 +3,4 @@ dist/
 
 # chapter images stay out of the project: they come from the chapter zips
 site/chapters/*/*.webp
+site/chapters/*/*.jpg
