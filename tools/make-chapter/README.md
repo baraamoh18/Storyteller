@@ -36,10 +36,14 @@ after changing either script.
 |---|---|
 | `panel_XX_background.webp`, `panel_XX_characters.webp` | the layers |
 | `bubble_XX.webp` | the speech bubbles |
-| `chapter.json` | number, source file, dropped pages, strip size, panels (`x, y, width, height, tiny`), bubbles (`panel`, `x, y, w, h` in that panel's pixels, `between_panels`, `suspect`) |
+| `chapter.json` | number, source file, dropped pages, strip size, panels (`x, y, width, height, tiny`, and `continues: panel_XX` for a piece cut from the same tall picture as the panel before), bubbles (`panel`, `x, y, w, h` in that panel's pixels, `between_panels`, `suspect`) |
 | `sheets/pages.jpg` | every page, dropped ones crossed out |
 | `sheets/panels_XX-YY.jpg` | the original panels, five per sheet, numbered |
 | `sheets/bubbles.jpg` | every bubble with the panel it belongs to |
+
+A chapter zip in `--out` or a `--done-dir` whose panels are over 4.5 strip widths tall was made before tall panels were
+split up (its cutouts are squashed): it is made again automatically. Title and promo pages are recognised by fingerprint,
+but a plain page (black, a fade) is never dropped, as it sits near every fingerprint.
 
 `tiny` panels (under 120 px on a side or 40,000 px²) are crumbs the panel finder picks up, such as a flash fragment
 or the tail of a bubble; the director skips them. `suspect` bubbles are small ones worth a second look.

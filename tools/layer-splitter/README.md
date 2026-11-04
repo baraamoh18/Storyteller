@@ -39,7 +39,10 @@ The first run downloads the AI models (about 2.3 GB). Expect a couple of minutes
 
 ## How it works
 
-- **Panels** are found by looking for the black or white gaps between them.
+- **Panels** are found by looking for the black or white gaps between them. A "panel" more than 2.5 strip widths tall is
+  usually long plain space (black with embers, a fade, a texture) with pictures inside it: the plain stretches (half a
+  strip width or longer) are dropped like gutters, and a piece still over 4.5 strip widths tall is cut at its calmest row
+  and marked `continues` (the cutout models squash every panel to a square, and WebP cannot store over 16383 px).
 - **Speech bubbles** are white shapes with black lettering inside.
 - **Characters** are cut out by two BiRefNet models (`birefnet-general` and `birefnet-hrsod`, via `rembg`), each run on the panel and on a mirrored copy, and the results are combined. These two were picked by comparing all of rembg's models on webtoon panels: the others missed parts of characters or grabbed chunks of background. Without a graphics card only `birefnet-general` runs, to save time and memory. Use `--models birefnet-general-lite` for a quicker, rougher run.
 - **Edges** are then refined with ViTMatte (for hair and flames, and to drop see-through patches), and the background colour mixed into soft edge pixels is removed so characters carry no fringe.

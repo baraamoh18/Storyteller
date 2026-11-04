@@ -117,11 +117,64 @@ def find_panels(rgb, bubble_mask):
         if not col_runs:
             continue
         x0, x1 = col_runs[0][0], col_runs[-1][1]
-        panels.append((x0, y0, x1 - x0, y1 - y0))
+        panels += split_tall(rgb, (x0, y0, x1 - x0, y1 - y0), ignore, rgb.shape[1])
     if not panels:  # a single picture with no gutters
         h, w = rgb.shape[:2]
-        panels.append((0, 0, w, h))
+        panels += split_tall(rgb, (0, 0, w, h), ignore, w)
     return panels
+
+
+# Webtoons pace scenes with long stretches of plain space (black with a few embers, a fade, a faint texture)
+# whose colour is not the gutter colour, so the gutter test above sees one "panel" many screens tall.
+# The cutout models squash every panel to a square, which ruins those, and WebP cannot store over 16383 px.
+TALL = 2.5        # panels taller than this many strip widths are looked at
+EMPTY_RUN = 0.5   # plain stretches at least this many strip widths long are dropped, like gutters
+LONGEST = 4.5     # no piece is left taller than this many strip widths: longer ones are cut at their calmest row
+
+
+def row_busyness(crop, ignore):
+    """For each row, the share of its pixels that stand out from the row's own typical colour (0 for a plain row)."""
+    busy = np.empty(len(crop), np.float32)
+    for y0 in range(0, len(crop), 2048):  # in blocks, so a panel tens of thousands of pixels tall fits in memory
+        part = crop[y0:y0 + 2048, ::2].astype(np.int16)
+        typical = np.median(part, axis=1, keepdims=True).astype(np.int16)
+        stands_out = (np.abs(part - typical).max(2) > 40) & ~ignore[y0:y0 + 2048, ::2]
+        busy[y0:y0 + 2048] = stands_out.mean(1)
+    return busy
+
+
+def split_tall(rgb, box, ignore, strip_width):
+    """One panel box -> one or more (x, y, w, h, continues): continues is True for a piece cut from the same picture
+    as the piece before it (no gap between them), so the director can keep the camera move going."""
+    x, y, w, h = box
+    if h <= TALL * strip_width:
+        return [(x, y, w, h, False)]
+    busy = row_busyness(rgb[y:y + h, x:x + w], ignore[y:y + h, x:x + w])
+    # the pictures are what is left between the long plain stretches
+    segments, top = [], 0
+    for a, b in _runs(busy < 0.03, round(EMPTY_RUN * strip_width)) + [(h, h)]:
+        # a stretch with only a few busy rows is a crumb (an ember, the edge of a glow), not a picture
+        if (busy[top:a] >= 0.03).sum() >= 120:
+            segments.append((top, a))
+        top = b
+    # pieces still too tall are cut where the picture is calmest (a sky, a fade), a little towards the middle
+    calm = np.convolve(busy, np.ones(31, np.float32) / 31, mode="same")
+    pieces = []
+
+    def cut(a, b, continues):
+        if b - a <= LONGEST * strip_width:
+            pieces.append((x, y + a, w, b - a, continues))
+            return
+        lo, hi = a + strip_width, b - strip_width
+        rows = np.arange(lo, hi)
+        c = lo + int(np.argmin(calm[lo:hi] + 0.01 * np.abs(rows - (a + b) / 2) / (b - a)))
+        cut(a, c, continues)
+        # a cut in a plain band (black between two pictures) starts a new picture; anywhere else the picture goes on
+        cut(c, b, bool(calm[c] > 0.01))
+
+    for a, b in segments:
+        cut(a, b, False)
+    return pieces
 
 
 # ---------------------------------------------------------------- models
@@ -360,7 +413,7 @@ def split_image(name, source, rgb, out_root, models):
     info = {"source": source, "width": w, "height": h, "panels": [], "bubbles": []}
     preview = rgb.copy()
 
-    for n, (x, y, pw, ph) in enumerate(panels, 1):
+    for n, (x, y, pw, ph, continues) in enumerate(panels, 1):
         name = f"panel_{n:02d}"
         folder = out / name
         folder.mkdir(exist_ok=True)
@@ -386,6 +439,8 @@ def split_image(name, source, rgb, out_root, models):
                 "original": f"{name}/original.png",
             },
         })
+        if continues:  # cut from the same tall picture as the panel before it
+            info["panels"][-1]["continues"] = f"panel_{n - 1:02d}"
         cv2.rectangle(preview, (x, y), (x + pw, y + ph), (0, 255, 0), 4)
         cut = (alpha > 40)
         region = preview[y:y + ph, x:x + pw]

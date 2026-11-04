@@ -58,6 +58,19 @@ def chapter_number(path):
     return str(int(whole)) + (f".{part}" if part else "")
 
 
+def made_before_tall_fix(zip_path):
+    """True for a chapter zip from before tall panels were split up: one of its panels is far taller than the strip is
+    wide (mostly empty space, with the cutouts squashed out of shape), so the chapter is worth making again."""
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            name = next(n for n in z.namelist() if n.endswith("chapter.json"))
+            info = json.loads(z.read(name))
+    except Exception:
+        return False  # unreadable: leave it alone, the user will see it
+    limit = 4.5 * info["strip"]["width"]  # split_layers.LONGEST strip widths
+    return any(p["height"] > limit + 1 for p in info["panels"])
+
+
 def chapter_id(number):
     """'94' -> '094', '94.5' -> '094-5': the folder name and the reader's #address."""
     whole, _, part = number.partition(".")
@@ -101,7 +114,10 @@ REFS = {why: np.unpackbits(np.frombuffer(bytes.fromhex(h), dtype=np.uint8)).asty
 def non_story_reason(image):
     h = dhash(image)
     for why, ref in REFS.items():
-        if int((h != ref).sum()) <= MATCH_BITS:
+        distance = int((h != ref).sum())
+        # a plain page (all black, a fade, a small picture on black) has almost no bits set and so sits near every
+        # fingerprint: it only counts as a match when it is closer to the fingerprint than to an empty page
+        if distance <= MATCH_BITS and distance < int(h.sum()):
             return why
     return None
 
@@ -243,6 +259,8 @@ def make_chapter(cbz, number, out_root, work_root, models, skip_by_hand):
         entry = {k: p[k] for k in ("id", "x", "y", "width", "height")}
         # crumbs the panel finder picks up (a flash fragment, the tail of a bubble): the director skips them
         entry["tiny"] = min(p["width"], p["height"]) < 120 or p["width"] * p["height"] < 40000
+        if p.get("continues"):  # cut from the same tall picture as the panel before it
+            entry["continues"] = p["continues"]
         panels.append(entry)
 
     bubbles, bubble_images = [], []
@@ -340,7 +358,15 @@ def main():
     if shares > 1:
         print(f"Share {share} of {shares}: chapters {', '.join(sorted(found, key=float))}")
     done_dirs = [out_root] + [Path(d) for d in args.done_dir]
-    is_done = lambda c: any(next(Path(d).rglob(f"chapter_{chapter_id(c)}.zip"), None) for d in done_dirs if Path(d).is_dir())
+
+    def is_done(c):
+        zips = [z for d in done_dirs if Path(d).is_dir() for z in Path(d).rglob(f"chapter_{chapter_id(c)}.zip")]
+        if not zips:
+            return False
+        if made_before_tall_fix(zips[0]):
+            print(f"Chapter {c}: made again: {zips[0].name} has panels many screens tall (made before the tall-panel fix)")
+            return False
+        return True
     todo = {c: f for c, f in found.items() if args.redo or not is_done(c)}
     for c in sorted(set(found) - set(todo), key=float):
         print(f"Chapter {c}: already done (chapter_{chapter_id(c)}.zip); use --redo to make it again")

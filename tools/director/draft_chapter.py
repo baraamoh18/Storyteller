@@ -167,7 +167,8 @@ def scene_js(s):
                 settings.append("    bubbles: " + js(entries, 4))
         else:
             settings.append(f"    {k}: " + js(v, 4))
-    first = "  { " + head + ("," if settings else " },") + (f"  // from {s['_carried']}" if s.get("_carried") else "")
+    remark = "; ".join(r for r in (f"from {s['_carried']}" if s.get("_carried") else "", s.get("_note", "")) if r)
+    first = "  { " + head + ("," if settings else " },") + (f"  // {remark}" if remark else "")
     if not settings:
         return "\n".join([first] + notes)
     return "\n".join([first] + notes + [",\n".join(settings) + " },"])
@@ -223,6 +224,11 @@ def main():
     title = args.title or f"Chapter {info['number']}"
 
     scenes = [draft_scene(p, by_panel.get(p["id"], []), k == 0) for k, p in enumerate(panels)]
+    # pieces of one tall picture (the chapter maker cuts those up): a plain cut between them, so it reads as one picture
+    for k, p in enumerate(panels):
+        if k and p.get("continues") == panels[k - 1]["id"]:
+            scenes[k - 1]["exit"] = scenes[k]["enter"] = "cut"
+            scenes[k]["_note"] = f"continues {p['continues']} (one tall picture cut in two): keep the camera move going"
     music = [{"theme": "calm", "from": scenes[0]["id"]}]
 
     if args.carry_over:
