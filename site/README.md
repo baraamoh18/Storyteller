@@ -35,10 +35,10 @@ Each panel has:
 | `fit` | `"pan"` fills the width and pans down a tall panel; otherwise the whole panel shows |
 | `camera` | moves the whole panel: `scale`, and `x` / `y` in % of the panel |
 | `bg`, `chars` | move the background and characters separately for depth; `over: [start, end]` squeezes the move into part of the scroll |
-| `bubbles` | speech bubble file, its position and size in the panel's pixels, and when it pops in (0–1); `pop: false` fades it in where it sits (for lettering drawn on the art). Bubbles are nudged back on screen if they hang off it |
+| `bubbles` | speech bubble file, its position and size in the panel's pixels, and when it pops in (0–1) and fades out (`out`, default 0.8; 0.92 or more keeps it until the panel leaves); `pop: false` fades it in where it sits (for lettering drawn on the art). Bubbles are nudged back on screen if they hang off it |
 | `shakes`, `flashes` | moments (0–1) of a camera shake, or of a flash with its `color` and `strength`; a flash can `hold` at full strength for a while (a white-out, as a fraction of the panel's scroll), with `rise` / `fall` setting its fades |
 | `sfx` | sound effects at moments (0–1): `crack`, `whoosh`, `grip`, `flame`, `swish`, `clang`, `skid`, `tap`, `thud`, `glint`, `shatter` (breaking glass), `crash` (a huge impact), `gust` (a rush of wind), plus two recorded sword sounds from `sfx/` (listed under `sounds` in `series.js`): `deflect` (quick and bright: a blade turned aside) and `parry` (heavier, with a longer ring: blades meeting with weight). `clang` is the older synthesised blade hit, and the fallback if a recording is missing |
-| `fx` | particles: `ambient` `"dust"`, `"embers"` or `"speed"` in a `tint` (`"paper"`, `"mana"`, `"ember"`) and `amount`, plus impact `bursts` (`"splinters"`, `"sparks"`, `"ring"`, `"flare"`, `"shatter"`: glass cracks growing out from the point, with flying shards) at a moment, coming `from` a point (% of the panel) |
+| `fx` | particles: `ambient` `"dust"`, `"embers"` or `"speed"` in a `tint` (`"paper"`, `"mana"` blue, `"ember"` orange, `"wind"` green-white) and `amount`, plus impact `bursts` (`"splinters"`, `"sparks"`, `"ring"`, `"flare"`, `"shatter"`: glass cracks growing out from the point, with flying shards) at a moment, coming `from` a point (% of the panel); `sparks` and `flare` take a `tint` too (blue by default) |
 | `enter`, `exit` | `"cut"`, `"fade"` or `"zoom"`; a zoom exit dives into `focus` (% of the panel) |
 
 ## Music

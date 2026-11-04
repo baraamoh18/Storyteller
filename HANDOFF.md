@@ -1,6 +1,6 @@
 # Project Handoff: AI-Driven Manhwa Scrollytelling Reader
 
-> **Last updated 2026-11-04 (second session).** Read **Section 0** first, then **Section 12 (next steps)** and **Section 13 (how to work)**.
+> **Last updated 2026-11-04 (third session: chapter 94 directed, tall-panel fix).** Read **Section 0** first, then **Section 12 (next steps)** and **Section 13 (how to work)**.
 
 ---
 
@@ -11,8 +11,8 @@
 | **Reader** (`site/`) | A multi-chapter **series reader**: chapter menu, scroll-scrubbed parallax scenes, particles, synthesised + recorded sound effects, themed music that crossfades. One chapter in it: **The Duel** (`chapters/duel`, 60 panels, the old partial cut of chapter 94). |
 | **Chapter maker** | Done and **proven on the user's real Colab GPU**: `Make_Chapter.ipynb` (Colab), `Make_Chapters_Kaggle.ipynb` (Kaggle, 2× T4), PC kit for the user's **RTX 5050**. CBZ in → one `chapter_<id>.zip` (~15 MB) per chapter. |
 | **Chapter 94, full** | The user's Colab run produced `chapter_094.zip` (70 pages → 92 panels, 2 tiny, 26 bubbles, 14.5 MB). **Not saved in this repo** (images stay out of git): it is in the user's Google Drive at `Storyteller/chapters/chapter_094.zip`. **Ask the user to upload it again** to direct it. |
-| **Directing chapter 94** | **Next job.** The draft tool carries over all 60 duel scenes onto new panels 10–69; 30 new panels (opening 1–9, finale 70–92) still need directing. |
-| **Kaggle** | The user started their **first Kaggle run** (Version 2, GPU T4 ×2, dataset `tbate-cbz`) at the end of this session; the chapter range is whatever they typed (the default is `"1-30"`). Not yet known whether it succeeded. |
+| **Directing chapter 94** | **Done, waiting for the user's approval:** `site/chapters/094/chapter.js` (90 scenes; images not in git, they are in the user's zip). Preview artifact updated (version 11). `duel` is out of `series.js`; delete `site/chapters/duel/` once 094 is approved. |
+| **Kaggle** | First run (chapters 1–30) **failed 10 chapters** (WebP 16383 px limit) and squashed the cutouts of very tall "panels" (long black/fade stretches) in the rest. Fixed in `split_layers.find_panels` → `split_tall` (commit `b791f39`); the user was sent the new notebook and told to rerun with the old output as input: 28 chapters are remade (old zips with panels > 4.5 strip widths count as not done), 9 and 21 are kept. Their uploads of 2–4 are superseded. |
 | **PC kit** | Sent (`dist/Storyteller-PC-Tools.zip`), not yet run by the user. Untested on Windows. |
 | **Music library** | 8 loops in `site/music` (calm, tension, battle ×2, battle_dark ×2, climax ×2). `tools/music/Make_Music.ipynb` (10 more: calm_2, tension_2, sad, eerie, triumph, warm) was sent; **not yet run** by the user. |
 | **Voices** | **Off** at the user's request. |
@@ -48,7 +48,7 @@ transitions into a focal point, parallax between layers.
 
 ## 3. Where everything lives
 
-* **Repo:** `github.com/baraamoh18/Storyteller`. **Work branch:** `claude/new-session-em88ar` →
+* **Repo:** `github.com/baraamoh18/Storyteller` (private now; default branch `claude/project-thread-6clyex`). **Third session's branch:** `claude/new-session-4xc7k0` (no PR yet). Older branch: `claude/new-session-em88ar` →
   **pull request [baraamoh18/Storyteller#2](https://github.com/baraamoh18/Storyteller/pull/2)** (created by the user from the UI;
   pushing to the branch updates it). The PR is not being watched (the user was asked, no answer).
 * **Live preview** (private artifact): https://claude.ai/artifact/G6A8f5qCYfSL8KYwcFWKxH. Published from a copy of `site/index.html`
@@ -284,7 +284,7 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
 
 ## 12. Next steps (in order)
 
-1. **Direct chapter 94:** ask for `chapter_094.zip` (Drive `Storyteller/chapters`), unpack it in the scratchpad, run the draft tool
+1. ~~**Direct chapter 94**~~ (done, see Section 0; next: the user's notes, then retire `duel`). Was: ask for `chapter_094.zip` (Drive `Storyteller/chapters`), unpack it in the scratchpad, run the draft tool
    with `--carry-over site/chapters/duel/chapter.js`, direct the 30 new panels, check panels 10 and 34, test in Playwright, publish
    the preview, get the user's approval or notes. Copy the images into `site/chapters/094/` for previews but **do not commit them**
    (add `site/chapters/*/*.webp` to `.gitignore`, keeping the tracked duel files until `duel` is retired).
@@ -328,7 +328,15 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
 
 ---
 
-## 14. This session's commits (oldest first)
+## 13b. Third session (notes)
+
+* Reader: `wind` particle tint (green-white, Arthur's TEMPEST), `tint` on `sparks`/`flare` bursts, per-bubble `out` (fade moment; ≥ 0.92 keeps it): a bubble low on a tall `pan` panel otherwise fades at 0.8 before the camera reaches it.
+* Bubbles the maker places outside their panel (`between_panels`, y < 0 or y > h) on `pan` panels need moving into the panel by hand (094: bubble_24, bubble_26).
+* Chapter maker: a plain page (all black, a fade) is no longer taken for the title/promo page (it is near every fingerprint); dropped pages still need a glance on `sheets/pages.jpg` (Kaggle's chapter 22 dropped page 000 as "promo": check when it comes in).
+* Test helpers for tall panels lived in the scratchpad (rebuild a strip from a zip's background + characters layers, run `find_panels`).
+* Still to do from step 2: the director playbook skill.
+
+## 14. Second session's commits (oldest first)
 
 | Commit | What |
 |---|---|

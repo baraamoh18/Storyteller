@@ -5,7 +5,7 @@ window.SERIES = {
   playlist: "https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe", // the fans' reading playlist
 
   chapters: [
-    { id: "duel", title: "The Duel", number: null, panels: 60 },
+    { id: "094", title: "The Duel", number: 94, panels: 90 },
   ],
 
   // music themes: each is a list of takes (seamless loops in music/, made with tools/music/).
