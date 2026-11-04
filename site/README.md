@@ -9,6 +9,15 @@ Open `index.html` through a local web server: run `python -m http.server` in thi
 (Double-clicking the file shows the panels, but browsers block the music when a page is opened as a file.)
 It needs an internet connection for GSAP and the fonts. `index.html#duel` opens the chapter with the id `duel`.
 
+## On the user's PC (and phone)
+
+`tools/reader/` makes the PC reader: `python tools/reader/build_reader.py` writes `dist/Storyteller-Reader.zip` (the reader,
+the chapters listed in `series.js`, `Read Storyteller.bat`, `reader.py`). `reader.py` is a small web server (standard library
+only): it adds reader packs dropped into `new chapters/`, serves the reader to the PC and to phones on the same Wi-Fi, and
+answers `__chapters.js` (the chapter menu, read from the chapters folder, so packs never need a new `series.js`) and
+`__phone.json` (the address shown with a QR code on the PC's title card). New chapters go out as packs:
+`build_reader.py --pack 094` writes `dist/reader-pack_094.zip` (`--with-reader` adds the newest `index.html` and `series.js`).
+
 ## Layout
 
 ```

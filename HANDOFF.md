@@ -293,8 +293,9 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
    uploads chapters 1–5 for the first series batch.
 4. **PC kit:** when the user runs `Setup.bat`, fix whatever the first Windows run shows (screenshots).
 5. **Music library:** the user runs `Make_Music.ipynb`; loop the takes with `make_loop.py`, add them to `SERIES.themes`.
-6. **Reading on the PC:** a start file (a tiny local web server, since `file://` blocks fetching music) plus delivery of approved
-   chapters as zips to unzip into the reader folder.
+6. ~~**Reading on the PC**~~ done in the third session: `tools/reader/` (see `site/README.md`, "On the user's PC"). Sent the user
+   `dist/Storyteller-Reader.zip` with chapter 94; tested here with Playwright (PC + phone address, pack import), not yet on
+   Windows. Each approved chapter: `build_reader.py --pack <id>` and send the pack (the user drops it into `new chapters`).
 7. **Optional, needs the user's yes:** automatic delivery through a private `Storyteller-data` repo.
 8. **Later:** voices; dialogue chapters in "light" directing mode.
 
