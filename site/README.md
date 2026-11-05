@@ -76,6 +76,14 @@ in `music/` with a `volume` that evens out loudness. When a chapter uses a theme
 
 Planned: `sad`, `eerie`, `triumph`. Make takes with `tools/music/Make_Music.ipynb`, then loop them with `tools/music/make_loop.py`.
 
+## Auto-scroll
+
+**Auto-scroll** (title card and top bar) scrolls by itself at 60 units a second times the speed slider (0.5x-2x, kept in
+`localStorage` on that device). It eases almost to a stop after each bubble pops in, for `0.5 + clamp(0.6 + w*h/75000, 1, 4)`
+seconds (bigger bubbles hold more words; divided by the square root of the speed), and lingers after big moments: the sounds
+`crash`, `shatter`, `parry`, `deflect`, `thud`, strong or held flashes, and `shatter` bursts. A touch, wheel or scrolling key
+pauses it; it stops at the end card.
+
 ## Sound
 
 Off until the reader presses **Play with sound** (browsers block sound before a tap).

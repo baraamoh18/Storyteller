@@ -296,6 +296,8 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
 6. ~~**Reading on the PC**~~ done in the third session: `tools/reader/` (see `site/README.md`, "On the user's PC"). Sent the user
    `dist/Storyteller-Reader.zip` with chapter 94; tested here with Playwright (PC + phone address, pack import), not yet on
    Windows. Each approved chapter: `build_reader.py --pack <id>` and send the pack (the user drops it into `new chapters`).
+6a. **Auto-scroll** (third session, the user's request: a speed slider, slowing for bubbles and big moments): see
+   `site/README.md` "Auto-scroll"; `makeAutoScroll()` in `index.html`. Tested in Playwright (speed, holds, wheel pause, end).
 6b. **Website for friends:** the user chose Cloudflare Pages, public, **no sign-in** (they declined Cloudflare Access; they were
    told about the copyright risk). `build_reader.py --site` → `dist/Storyteller-Site.zip`, uploaded by the user (drag and drop);
    noindex headers + robots.txt. The Cloudflare docs host is blocked here, so the click path given was from memory.
