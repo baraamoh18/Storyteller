@@ -79,8 +79,8 @@ Planned: `sad`, `eerie`, `triumph`. Make takes with `tools/music/Make_Music.ipyn
 ## Auto-scroll
 
 **Auto-scroll** (title card and top bar) scrolls by itself at 60 units a second times the speed slider (0.5x-2x, kept in
-`localStorage` on that device). It eases almost to a stop after each bubble pops in, for `0.5 + clamp(0.6 + w*h/75000, 1, 4)`
-seconds (bigger bubbles hold more words; divided by the square root of the speed), and lingers after big moments: the sounds
+`localStorage` on that device). It eases almost to a stop after each bubble pops in, for `0.3 + pauses * clamp(0.6 + w*h/75000, 1, 4)`
+seconds (`SERIES.autoScroll.pauses`, 0.65; bigger bubbles hold more words; divided by the square root of the speed), and lingers after big moments: the sounds
 `crash`, `shatter`, `parry`, `deflect`, `thud`, strong or held flashes, and `shatter` bursts. A touch, wheel or scrolling key
 pauses it; it stops at the end card.
 

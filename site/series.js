@@ -25,6 +25,9 @@ window.SERIES = {
   // the balance of music and effects: all music plays at `music`, and dips to `dip` of that under each sound effect
   mix: { music: 0.65, dip: 0.5 },
 
+  // auto-scroll: how long it pauses for bubbles and big moments (1 = longer, 0.5 = brisk)
+  autoScroll: { pauses: 0.65 },
+
   // recorded sound effects (in sfx/), used in scene plans like the synthesised ones: sfx: [{ at: 0.3, sound: "deflect" }]
   sounds: {
     deflect: { src: "sfx/deflect.mp3", volume: 1 }, // a quick, bright deflect: a blade turned aside (pitched about 2 notes down)

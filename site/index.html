@@ -645,6 +645,7 @@ function toGsap(v = {}) {
 function makeAutoScroll() {
   const BASE = 60;               // units (vh) a second at 1x: about 3-4 s per panel
   const CRAWL = 0.04;            // the speed left during a hold
+  const PAUSES = SERIES.autoScroll?.pauses ?? 0.65; // how long the holds are (1 = the first, longer version)
   const buttons = [...document.querySelectorAll(".auto-toggle")];
   const range = document.querySelector(".speed-range"), shown = document.querySelector(".speed-value");
   let speed = 1, playing = false, y = 0, setY = -1, factor = 1, holdUntil = 0, next = 0, last = 0;
@@ -697,8 +698,8 @@ function makeAutoScroll() {
     if (setY >= 0 && Math.abs(scrollY - setY) > 3) { pause(); return; }
     const u = unitsAt(y);
     while (next < holds.length && holds[next][0] <= u) {
-      // slower readers get longer holds, faster ones shorter; +0.5 s as the picture trails the scroll a little (scrub)
-      holdUntil = Math.max(holdUntil, clock + (0.5 + holds[next][1] / Math.sqrt(speed)) * 1000);
+      // slower readers get longer holds, faster ones shorter; +0.3 s as the picture trails the scroll a little (scrub)
+      holdUntil = Math.max(holdUntil, clock + (0.3 + (PAUSES * holds[next][1]) / Math.sqrt(speed)) * 1000);
       next++;
     }
     const target = clock < holdUntil ? CRAWL : 1;
