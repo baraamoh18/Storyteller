@@ -305,6 +305,9 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
    robots block, LinkedIn's crawler obeys robots.txt). Video: `tools/reader/record_demo.js` (Playwright, fake clock, 30 fps,
    1080x1350) + music mixed in numpy from the site loops (tension 0-14.9 s, climax from 12.9 s, calm from 46.4 s), loudnorm
    -14 LUFS. ffmpeg's `-stream_loop` on the MP3 loops made a click: loop the decoded samples instead.
+   Sound effects (the user asked for them): `record_demo.js <dir> cues` logs when each fires, `render_demo_audio.js` renders
+   music + effects in an OfflineAudioContext with the site's makeEffects and chain; music bed 0.55, dipping to half under each
+   effect (at the site's own balance the climax music buried most effects under the limiter: worth checking on the site too).
 7. **Optional, needs the user's yes:** automatic delivery through a private `Storyteller-data` repo.
 8. **Later:** voices; dialogue chapters in "light" directing mode.
 
