@@ -87,6 +87,16 @@ def site_page(url, cover, description):
     return page
 
 
+def add_folder_entries(zip_path):
+    """Give every folder in the zip its own entry: some uploaders (Cloudflare Pages' drag and drop) skip files whose
+    folders are not listed, though most unzip tools do not mind."""
+    with zipfile.ZipFile(zip_path, "a") as z:
+        names = set(z.namelist())
+        folders = {"/".join(n.split("/")[:k]) + "/" for n in names for k in range(1, n.count("/") + 1)}
+        for folder in sorted(folders - names):
+            z.writestr(zipfile.ZipInfo(folder), "")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pack", nargs="+", metavar="ID", help="make a reader pack with these chapters")
@@ -142,6 +152,7 @@ def main():
             for cid in series_chapters():
                 for p in chapter_files(cid):
                     z.write(p, f"{top}/reader/chapters/{cid}/{p.name}", zipfile.ZIP_STORED)
+    add_folder_entries(out)
     print(f"Wrote {out.relative_to(REPO)} ({out.stat().st_size / 1e6:.1f} MB)")
 
 
