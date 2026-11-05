@@ -307,7 +307,9 @@ blue-flame sword, red-orange aura), plus Sylvie (white fox form) and students in
    -14 LUFS. ffmpeg's `-stream_loop` on the MP3 loops made a click: loop the decoded samples instead.
    Sound effects (the user asked for them): `record_demo.js <dir> cues` logs when each fires, `render_demo_audio.js` renders
    music + effects in an OfflineAudioContext with the site's makeEffects and chain; music bed 0.55, dipping to half under each
-   effect (at the site's own balance the climax music buried most effects under the limiter: worth checking on the site too).
+   effect (at the site's own balance the climax music buried most effects under the limiter).
+   **Done on the site too:** all music goes through a bus at `SERIES.mix.music` (0.65) that dips to `dip` (0.5) under every
+   effect. Sent: both website zips and `dist/reader-update.zip` (`build_reader.py --reader-update`) for the PC reader.
 7. **Optional, needs the user's yes:** automatic delivery through a private `Storyteller-data` repo.
 8. **Later:** voices; dialogue chapters in "light" directing mode.
 

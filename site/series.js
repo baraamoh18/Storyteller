@@ -22,6 +22,9 @@ window.SERIES = {
     // still to make (step 4): sad, eerie, triumph
   },
 
+  // the balance of music and effects: all music plays at `music`, and dips to `dip` of that under each sound effect
+  mix: { music: 0.65, dip: 0.5 },
+
   // recorded sound effects (in sfx/), used in scene plans like the synthesised ones: sfx: [{ at: 0.3, sound: "deflect" }]
   sounds: {
     deflect: { src: "sfx/deflect.mp3", volume: 1 }, // a quick, bright deflect: a blade turned aside (pitched about 2 notes down)

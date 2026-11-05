@@ -901,7 +901,9 @@ function makeParticles() {
    and the page simply stays quiet for any file that is not there yet. */
 function makeSound() {
   const buttons = [...document.querySelectorAll("[data-sound]")];
-  let ctx = null, on = false, effects = {}, last = 0;
+  let ctx = null, on = false, effects = {}, last = 0, musicBus = null;
+  // the music sits under the effects and dips under each one, so clashes and impacts read over the war drums
+  const MIX = { music: 0.65, dip: 0.5, ...(SERIES.mix || {}) };
   const tracks = []; // one per MUSIC entry that loaded: its gain, the stretch of story it covers, its volume
 
   function label() {
@@ -935,6 +937,9 @@ function makeSound() {
     const sfxGain = ctx.createGain();
     sfxGain.gain.value = 0.65; // headroom: the browser's limiter is not a brick wall, so sharp metal hits need room
     sfxGain.connect(limiter);
+    musicBus = ctx.createGain();
+    musicBus.gain.value = MIX.music;
+    musicBus.connect(limiter);
     effects = makeEffects(ctx, sfxGain);
     // recorded sounds (sword deflects): a missing file falls back to the synthesised blade hit
     await Promise.all(Object.entries(SERIES.sounds || {}).map(async ([name, sound]) => {
@@ -962,7 +967,7 @@ function makeSound() {
       while (z > d.length - edge && Math.abs(d[z]) < 1e-3) z--;
       src.loopStart = a / buffer.sampleRate;
       src.loopEnd = (z + 1) / buffer.sampleRate;
-      src.connect(gain).connect(limiter);
+      src.connect(gain).connect(musicBus);
       src.start(0, src.loopStart);
       tracks.push({ gain, span: span(m), volume: m.volume ?? 0.5, level: -1 });
     }));
@@ -994,7 +999,10 @@ function makeSound() {
     if (now > last && now - last < 25) { // forward, and not a jump across the page
       for (const cue of cues) {
         if (cue.time <= last || cue.time > now) continue;
-        effects[cue.sfx]?.(ctx.currentTime + 0.01);
+        const t = ctx.currentTime + 0.01;
+        effects[cue.sfx]?.(t);
+        musicBus.gain.setTargetAtTime(MIX.music * MIX.dip, t - 0.01, 0.015); // duck under the hit, then come back
+        musicBus.gain.setTargetAtTime(MIX.music, t + 0.35, 0.25);
       }
     }
     last = now;

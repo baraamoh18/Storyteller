@@ -30,6 +30,7 @@ New chapters
 - When Claude sends a reader pack (a zip called reader-pack_<chapter>.zip), put it in the
   "new chapters" folder, then double-click "Read Storyteller". It is added by itself and the zip moves
   to "new chapters\added". The chapter menu updates by itself.
+- Reader updates (reader-update.zip) go in the same folder and are added the same way.
 - Chapter zips from the chapter-making kit (chapter_<number>.zip) are not reader packs: those go to
   Claude first, to be directed.
 

@@ -3,6 +3,7 @@
     python tools/reader/build_reader.py                 # dist/Storyteller-Reader.zip: the reader, with the chapters in series.js
     python tools/reader/build_reader.py --pack 094      # dist/reader-pack_094.zip: chapters to drop into "new chapters"
     python tools/reader/build_reader.py --pack 094 --with-reader   # the same, plus the newest reader page (index.html, series.js)
+    python tools/reader/build_reader.py --reader-update # dist/reader-update.zip: just the newest reader page, for "new chapters"
     python tools/reader/build_reader.py --site          # dist/Storyteller-Site.zip: the reader as a website, for Cloudflare Pages
     python tools/reader/build_reader.py --site --chapters 094-demo --public https://tbate-scroll-demo.pages.dev \
         --cover site/chapters/094-demo/cover.jpg --out Storyteller-Demo.zip   # the public demo, with a link preview
@@ -100,6 +101,7 @@ def add_folder_entries(zip_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pack", nargs="+", metavar="ID", help="make a reader pack with these chapters")
+    parser.add_argument("--reader-update", action="store_true", help="a pack with only the reader page and series.js")
     parser.add_argument("--with-reader", action="store_true", help="put the reader page and series.js in the pack too")
     parser.add_argument("--site", action="store_true", help="make the website zip (reader files at the top, no PC tools)")
     parser.add_argument("--chapters", nargs="+", metavar="ID", help="the website's chapters (default: those in series.js)")
@@ -130,6 +132,12 @@ def main():
             if not url:  # the friends' site: kept out of search engines (LinkedIn's preview reads robots.txt too)
                 z.writestr("_headers", SITE_HEADERS)
                 z.writestr("robots.txt", ROBOTS)
+    elif args.reader_update:
+        out = DIST / "reader-update.zip"
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            for p, name in reader_files():
+                if name.endswith((".html", ".js")):
+                    z.write(p, name)
     elif args.pack:
         out = DIST / f"reader-pack_{'_'.join(args.pack)}.zip"
         with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:  # WebP and MP3 are already compressed
