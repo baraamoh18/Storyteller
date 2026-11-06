@@ -20,6 +20,9 @@ two between images), add --join to stack them back together first.
 import argparse
 import json
 import re
+import sys
+import time
+from collections import defaultdict
 from pathlib import Path
 
 import cv2
@@ -114,11 +117,64 @@ def find_panels(rgb, bubble_mask):
         if not col_runs:
             continue
         x0, x1 = col_runs[0][0], col_runs[-1][1]
-        panels.append((x0, y0, x1 - x0, y1 - y0))
+        panels += split_tall(rgb, (x0, y0, x1 - x0, y1 - y0), ignore, rgb.shape[1])
     if not panels:  # a single picture with no gutters
         h, w = rgb.shape[:2]
-        panels.append((0, 0, w, h))
+        panels += split_tall(rgb, (0, 0, w, h), ignore, w)
     return panels
+
+
+# Webtoons pace scenes with long stretches of plain space (black with a few embers, a fade, a faint texture)
+# whose colour is not the gutter colour, so the gutter test above sees one "panel" many screens tall.
+# The cutout models squash every panel to a square, which ruins those, and WebP cannot store over 16383 px.
+TALL = 2.5        # panels taller than this many strip widths are looked at
+EMPTY_RUN = 0.5   # plain stretches at least this many strip widths long are dropped, like gutters
+LONGEST = 4.5     # no piece is left taller than this many strip widths: longer ones are cut at their calmest row
+
+
+def row_busyness(crop, ignore):
+    """For each row, the share of its pixels that stand out from the row's own typical colour (0 for a plain row)."""
+    busy = np.empty(len(crop), np.float32)
+    for y0 in range(0, len(crop), 2048):  # in blocks, so a panel tens of thousands of pixels tall fits in memory
+        part = crop[y0:y0 + 2048, ::2].astype(np.int16)
+        typical = np.median(part, axis=1, keepdims=True).astype(np.int16)
+        stands_out = (np.abs(part - typical).max(2) > 40) & ~ignore[y0:y0 + 2048, ::2]
+        busy[y0:y0 + 2048] = stands_out.mean(1)
+    return busy
+
+
+def split_tall(rgb, box, ignore, strip_width):
+    """One panel box -> one or more (x, y, w, h, continues): continues is True for a piece cut from the same picture
+    as the piece before it (no gap between them), so the director can keep the camera move going."""
+    x, y, w, h = box
+    if h <= TALL * strip_width:
+        return [(x, y, w, h, False)]
+    busy = row_busyness(rgb[y:y + h, x:x + w], ignore[y:y + h, x:x + w])
+    # the pictures are what is left between the long plain stretches
+    segments, top = [], 0
+    for a, b in _runs(busy < 0.03, round(EMPTY_RUN * strip_width)) + [(h, h)]:
+        # a stretch with only a few busy rows is a crumb (an ember, the edge of a glow), not a picture
+        if (busy[top:a] >= 0.03).sum() >= 120:
+            segments.append((top, a))
+        top = b
+    # pieces still too tall are cut where the picture is calmest (a sky, a fade), a little towards the middle
+    calm = np.convolve(busy, np.ones(31, np.float32) / 31, mode="same")
+    pieces = []
+
+    def cut(a, b, continues):
+        if b - a <= LONGEST * strip_width:
+            pieces.append((x, y + a, w, b - a, continues))
+            return
+        lo, hi = a + strip_width, b - strip_width
+        rows = np.arange(lo, hi)
+        c = lo + int(np.argmin(calm[lo:hi] + 0.01 * np.abs(rows - (a + b) / 2) / (b - a)))
+        cut(a, c, continues)
+        # a cut in a plain band (black between two pictures) starts a new picture; anywhere else the picture goes on
+        cut(c, b, bool(calm[c] > 0.01))
+
+    for a, b in segments:
+        cut(a, b, False)
+    return pieces
 
 
 # ---------------------------------------------------------------- models
@@ -132,7 +188,18 @@ class Models:
         from simple_lama_inpainting.models.model import LAMA_MODEL_URL
         from simple_lama_inpainting.utils.util import download_model
 
-        gpu = torch.cuda.is_available() and "CUDAExecutionProvider" in onnxruntime.get_available_providers()
+        if hasattr(onnxruntime, "preload_dlls"):  # Windows: find the CUDA libraries that came with torch
+            try:
+                onnxruntime.preload_dlls()
+            except Exception:
+                pass
+        providers = onnxruntime.get_available_providers()
+        # NVIDIA's CUDA where it works (Colab, Kaggle); DirectML on Windows works with any graphics card
+        self.gpu_kind = ("cuda" if torch.cuda.is_available() and "CUDAExecutionProvider" in providers
+                         else "dml" if "DmlExecutionProvider" in providers else None)
+        gpu = self.gpu_kind is not None
+        # seconds spent in each step, so a run shows where its time goes
+        self.timings = defaultdict(float)
         if cutout_models is None:
             # the second model only adds edge pixels; on the processor it is not worth
             # the time, and both together need more memory than Colab has (about 14 GB)
@@ -161,25 +228,29 @@ class Models:
             self.refine_edges = None
 
         noise = Image.fromarray(np.random.default_rng(0).integers(0, 256, (64, 64, 3), np.uint8))
-        cutouts_on_gpu = gpu and all([self._move_to_gpu(c.inner_session, lambda c=c: c.predict(noise))
+        cutouts_on_gpu = gpu and all([self._move_to_gpu(c.inner_session, lambda c=c: c.predict(noise), self.gpu_kind)
                                       for c in self.cutouts])
         if cutouts_on_gpu and self.refine_edges:
             try:  # rembg keeps its ViTMatte session to itself; it trips over the same problem
                 from rembg import matting
                 self._move_to_gpu(matting._get_session(matting.DEFAULT_VARIANT),
-                                  lambda: self.refine_edges(noise, noise.convert("L")))
+                                  lambda: self.refine_edges(noise, noise.convert("L")), self.gpu_kind)
             except Exception:
                 pass
+        self.cutouts_on_gpu = cutouts_on_gpu
 
         where = lambda on_gpu: "graphics card (fast)" if on_gpu else "processor (slow)"
         print(f"Cutouts run on the {where(cutouts_on_gpu)}, background fill on the {where(self.device.type == 'cuda')}.")
-        if not torch.cuda.is_available():
+        if torch.cuda.is_available():
+            print(f"Graphics card: {torch.cuda.get_device_name(0)}" + (" (cutouts through DirectML)" if self.gpu_kind == "dml" else ""))
+        in_colab = "google.colab" in sys.modules
+        if not torch.cuda.is_available() and in_colab:
             print("No graphics card found. For a much faster run choose Runtime > Change runtime type > T4 GPU.")
-        elif not cutouts_on_gpu:
+        elif not cutouts_on_gpu and in_colab:
             print("The cutout models could not use this graphics card. Try Runtime > Change runtime type > L4 GPU.")
 
     @staticmethod
-    def _move_to_gpu(session, warm_up):
+    def _move_to_gpu(session, warm_up, kind="cuda"):
         """Run an onnxruntime session on the graphics card if it works there; say whether it does.
 
         onnxruntime's default way of picking convolution algorithms (EXHAUSTIVE) fails on a T4
@@ -189,6 +260,14 @@ class Models:
         import onnxruntime
 
         session.disable_fallback()  # fail loudly here instead of silently moving to the processor
+        if kind == "dml":  # DirectML (Windows): no algorithm choice and no memory pool to manage
+            try:
+                session.set_providers(["DmlExecutionProvider", "CPUExecutionProvider"])
+                warm_up()
+                return "DmlExecutionProvider" in session.get_providers()
+            except Exception:
+                session.set_providers(["CPUExecutionProvider"])
+                return False
         onnxruntime.set_default_logger_severity(4)  # a failed try prints pages of cuDNN errors; expected here
         try:
             for search in ("HEURISTIC", "DEFAULT"):  # on a T4 only DEFAULT works; newer cards take HEURISTIC
@@ -223,30 +302,35 @@ class Models:
         mirrored = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         masks = []
         for session in self.cutouts:
+            started = time.perf_counter()
             # averaging with the mirrored panel drops glows and auras only one view mistakes for a character
             with np.errstate(over="ignore"):  # rembg's sigmoid overflows to exactly 0 on sure background, which is right
                 plain = np.asarray(session.predict(image)[0], np.float32)
                 flipped = np.asarray(session.predict(mirrored)[0], np.float32)[:, ::-1]
             masks.append((plain + flipped) / 2)
+            self.timings[f"cutout {session.model_name}"] += time.perf_counter() - started
         # each model misses different bits (a hand here, an outline there),
         # so keep anything that any of them sees as part of a character
         alpha = np.maximum.reduce(masks).astype(np.uint8)
         if self.refine_edges:
+            started = time.perf_counter()
             # ViTMatte redraws the soft edge band: crisper hair, no see-through ghost patches
             refined = np.asarray(self.refine_edges(image, Image.fromarray(alpha)))
+            self.timings["edge refinement"] += time.perf_counter() - started
             # its output tops out at 254; make the solid inside fully solid again
             refined = np.where(refined >= 250, 255, refined)
             # it also thins fine lines the models were sure of (speed lines, outlines), so those keep their value
             alpha = np.maximum(refined, np.where(alpha >= 200, alpha, 0)).astype(np.uint8)
         return alpha.copy()
 
-    @staticmethod
-    def character_colours(rgb, alpha):
+    def character_colours(self, rgb, alpha):
         from pymatting import estimate_foreground_ml
 
+        started = time.perf_counter()
         # on soft edges the drawn colour is mixed with the background behind it;
         # unmix it so the character carries no fringe of the old background
         foreground = estimate_foreground_ml(rgb / 255.0, alpha / 255.0)
+        self.timings["edge colours"] += time.perf_counter() - started
         foreground = np.clip(foreground * 255 + 0.5, 0, 255).astype(np.uint8)
         return np.where(alpha[..., None] == 255, rgb, foreground)
 
@@ -256,6 +340,7 @@ class Models:
         import torch
         from simple_lama_inpainting.utils.util import prepare_img_and_mask
 
+        started = time.perf_counter()
         h, w = rgb.shape[:2]
         fill_size = min(self.max_fill_size, max(h, w))
         while True:
@@ -277,6 +362,7 @@ class Models:
                 fill_size //= 2
         if self.device.type == "cuda":
             torch.cuda.empty_cache()  # leave the graphics memory to the cutout models
+        self.timings["background fill"] += time.perf_counter() - started
         result = np.clip(result * 255, 0, 255).astype(np.uint8)[:small[1], :small[0]]
         result = cv2.resize(result, (w, h), interpolation=cv2.INTER_CUBIC)
         # keep the untouched pixels exactly as drawn
@@ -327,7 +413,7 @@ def split_image(name, source, rgb, out_root, models):
     info = {"source": source, "width": w, "height": h, "panels": [], "bubbles": []}
     preview = rgb.copy()
 
-    for n, (x, y, pw, ph) in enumerate(panels, 1):
+    for n, (x, y, pw, ph, continues) in enumerate(panels, 1):
         name = f"panel_{n:02d}"
         folder = out / name
         folder.mkdir(exist_ok=True)
@@ -353,6 +439,8 @@ def split_image(name, source, rgb, out_root, models):
                 "original": f"{name}/original.png",
             },
         })
+        if continues:  # cut from the same tall picture as the panel before it
+            info["panels"][-1]["continues"] = f"panel_{n - 1:02d}"
         cv2.rectangle(preview, (x, y), (x + pw, y + ph), (0, 255, 0), 4)
         cut = (alpha > 40)
         region = preview[y:y + ph, x:x + pw]

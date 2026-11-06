@@ -1,429 +1,387 @@
-# Project Handoff: AI-Driven Manhwa Scrollytelling Website
+# Project Handoff: AI-Driven Manhwa Scrollytelling Reader
 
-> **Status (last updated 2026-11-02, second session):** Stage 1 (splitting the chapter into layers) is done and runs fast on Colab's T4 GPU.
-> Stages 2 and 3 are working for **panels 1–60**: a scroll site with parallax, zoom-through cuts, particles, sword sound effects and all speech bubbles.
-> **Voices are switched off** at the user's request ("needs more adjustments").
-> **Music is in:** five MusicGen loops crossfade by story section (Section 7).
-> **Now automating the whole series** (Section 12): step 1 (the site is a multi-chapter reader with per-chapter data files) is done.
-> **Waiting on the user:** the cast list (`series/cast.md`), chapters as CBZ files, panels 61–65, the duel chapter's number.
-> Read **Section 9: Next steps** and **Section 10: Instructions for the next AI session** first.
+> **Last updated 2026-11-05 (end of the third session).** Read **Section 0** first, then **Section 13 (next steps)** and
+> **Section 14 (how to work)**. `project_handoff_document.md` is the very first, obsolete handoff.
+
+---
+
+## 0. Status at a glance
+
+| Part | State |
+|---|---|
+| **Reader** (`site/`) | Multi-chapter series reader: chapter menu, scroll-scrubbed parallax scenes, particles, synthesised + recorded sound effects, themed music with crossfades and **ducking under effects**, **auto-scroll** with a speed slider that slows for bubbles and big moments, a **credit line**, and on the PC a "Read on your phone" QR card. |
+| **Chapter 94 "The Duel"** | **Directed in full and approved by the user.** `site/chapters/094/chapter.js` (90 scenes). Images are **not in git**: they come from `chapter_094.zip` (user's Drive `Storyteller/chapters/`). The old 60-panel `duel` cut is deleted (commit `cab2a0a`; still in history). |
+| **Public demo** | `site/chapters/094-demo/chapter.js`: 19 panels cut from 094 (opening + finale) for LinkedIn. |
+| **Websites (Cloudflare Pages, uploaded by the user, both working)** | **tbate-reader.pages.dev**: full chapter for friends, no sign-in (user's choice), kept out of search engines. **tbate-scroll-demo.pages.dev**: the 19-panel demo for LinkedIn, with link-preview tags and cover. The user confirmed both work with the latest zips (auto-scroll, shorter pauses, sound rebalance). |
+| **PC reader** | `tools/reader/`: `Read Storyteller.bat` + `reader.py` (Python web server for PC and phone over Wi-Fi). Sent as `Storyteller-Reader.zip` + later `reader-update.zip`. Tested here only (Playwright); **the user has not reported a Windows run yet.** |
+| **LinkedIn** | Sent: 56 s portrait video (music + sound effects), the demo site, a post draft (Section 11). Unknown whether the user has posted. |
+| **Chapter maker** | Colab, Kaggle (2× T4) and PC kit, proven on real GPUs. **Fixed this session:** very tall "panels" (long black/fade stretches) are split up (they broke WebP and squashed cutouts), and plain black pages are no longer dropped as title/promo pages. |
+| **Kaggle** | First run (chapters 1–30) had 10 failures (WebP limit) and squashed cutouts elsewhere. The user got the fixed notebook and was told to rerun with the first run's output as input: **28 chapters remade automatically**, 9 and 21 kept. **Rerun results not reported yet.** Their uploads of chapters 2–4 are superseded. |
+| **PC chapter kit** | Sent (`dist/Storyteller-PC-Tools.zip`), not yet run by the user. Untested on Windows. |
+| **Music library** | 8 loops in `site/music`. `tools/music/Make_Music.ipynb` (10 more themes) was sent long ago; **not yet run**. |
+| **Voices** | **Off** at the user's request. |
+| **Repo** | `baraamoh18/Storyteller` is **private** (checked this session). Chapter images are kept out of git. |
 
 ---
 
 ## 1. The project and the user
 
-* **Goal:** turn a static manhwa chapter into an interactive, animated "scrollytelling" web page. Scrolling plays the scene; scrolling back rewinds it.
-* **Comic:** *The Beginning After the End* (TBATE) manhwa. The chapter used is a sword duel.
-* **Use:** a **personal project for fun, not going public.** That is why copyrighted art is fine to use here, and why free tools with non-commercial licences (MusicGen) are acceptable.
-* **The user (Baraa):** prefers an AI-first workflow with minimal manual coding or design. Wants plain-language explanations, one step at a time, and ready-to-run files.
-  * Runs notebooks on **Google Colab Pro**: **T4 GPU + High-RAM** runtime.
-  * Works on **Windows**. The local files live in `D:\Work\StoryTelling website\`.
-  * Prefers **free** options. Voices in **English**.
+* **Goal:** turn the manhwa *The Beginning After the End* (TBATE) into an animated "scrollytelling" reader: scrolling plays each
+  chapter like a film (camera moves, 2.5D parallax, zoom-through cuts, particles, sound), scrolling back rewinds it.
+* **Use:** a personal fan project. The user now **shares it with friends** (full chapter, link only) and **shows a short demo on
+  LinkedIn** as an AI side project. They were told twice about the copyright risk; the demo is an excerpt with credits; the
+  friends' site is unlisted. Do not post the full chapter publicly, and do not build a scraper for manhwa sites (CBZ files are
+  downloaded by the user).
+* **The user (Baraa):**
+  * wants plain, non-technical language, one step at a time, exact click paths, and ready-to-run files sent as attachments;
+  * wants a **plan before big work** and **approves every chapter** before it joins the reader;
+  * wants it **free and budget-friendly** (no paid APIs; the AI in a Claude Code session is the "director");
+  * wants **accuracy over speed**: **keep both cutout models** (they rejected a single-model fast mode);
+  * works on **Windows** (`D:\Work\StoryTelling website\`), has **Google Colab Pro**, **Kaggle** (phone verified), an **RTX 5050**
+    PC, a **Cloudflare** account (their email), Chrome; writes short messages with typos ("chapter 49 approved" meant 94).
+  * stores CBZ files in **Google Drive** `Storyteller/cbz/` (~280 files, 2.8 GB) and in the Kaggle dataset `tbate-cbz`.
+* **Decisions already made** (do not re-ask): file chapter numbers are series numbers; images stay out of GitHub; title / promo
+  pages are dropped automatically; after chapter 94 the series starts from **Episode 1**; music is instrumental, by theme; voices
+  off; the friends' website has **no sign-in**; the speed control is a **slider**; auto-scroll also slows at big moments.
 
 ## 2. Reference style
 
-Inspired by "The Notturno Experience" interactive graphic novel.
-* **Look:** neo-noir. High-contrast black and white with bold flat accents (red), halftone dots, rough ink lines, bold retro comic type.
-* **Mechanics:**
-  * scroll-scrubbed timelines, not autoplay;
-  * zoom-through transitions into a focal point;
-  * 2.5D parallax between layers;
-  * sequential frame motion.
+Inspired by "The Notturno Experience": neo-noir, ink black (`#0b0a0d`) and paper white (`#f1ece4`) with one flat red (`#e5202e`),
+halftone dots, Bangers / Archivo Narrow / IBM Plex Mono. Scroll-scrubbed timelines, zoom-through transitions, parallax.
+
+---
 
 ## 3. Where everything lives
 
-* **Repo:** `github.com/baraamoh18/Storyteller`
-  * **Branch with all the work:** `claude/new-session-em88ar` (it contains everything from the older `claude/tender-planck-n2lbxf`). No pull request has been opened.
-  * The older branch `claude/project-thread-6clyex` has the original layer splitter only.
-* **Live preview** (private artifact, only the user can open it): https://claude.ai/artifact/G6A8f5qCYfSL8KYwcFWKxH. It is published from `site/index.html`, with the `<!doctype>`, `<html>`, `<head>` and `<body>` wrappers stripped (the artifact host adds its own) and every `site/assets/...` file passed through the publish `files` map.
+* **Repo:** `github.com/baraamoh18/Storyteller`, private. Default branch `claude/project-thread-6clyex`. **Fourth session
+  (2026-11-06, branch `claude/new-session-259v6s`):** brought the third session's branch `claude/new-session-4xc7k0` in, added the
+  root `README.md` (banner and desktop screenshot in `docs/images/`, made by Playwright from `docs/images/banner.html` and the
+  running reader), let `reader.py` run straight from a GitHub download, and merged it all into the default branch at the user's
+  request. Older branch `claude/new-session-em88ar` (PR [baraamoh18/Storyteller#2](https://github.com/baraamoh18/Storyteller/pull/2)).
+* **Claude preview artifact** (private): https://claude.ai/artifact/G6A8f5qCYfSL8KYwcFWKxH — version 11 shows chapter 94 but an
+  **older reader** (no credit line, auto-scroll or new mix). The Cloudflare sites replaced it for sharing; republish only if asked
+  (copy of `site/index.html` without the doctype/html/head/body lines, `root = site/`, files listed explicitly; ≤ 255 files per
+  publish, ≤ 511 per version; it still holds the old duel files).
+* **Cloudflare Pages** (the user uploads; Claude cannot reach Cloudflare or `*.pages.dev` from here): projects **`tbate-reader`**
+  (← `dist/Storyteller-Site.zip`) and **`tbate-scroll-demo`** (← `dist/Storyteller-Demo.zip`). New version: project → **⋯** →
+  **Create deployment** → drag the zip → Deploy. New project: Workers & Pages → Create → Pages → Upload assets.
+* **The user's storage:** Drive `Storyteller/cbz`, `Storyteller/chapters` (zips out; `chapter_094.zip` is there),
+  `Storyteller/music_takes`; Kaggle dataset `tbate-cbz` + notebook outputs; PC: the reader folder ("Storyteller Reader") and the
+  chapter kit folder.
 
 ```
-HANDOFF.md                         this file
-tools/layer-splitter/
-  Split_Manga_Layers.ipynb         the Colab notebook the user runs (it carries its own copy of split_layers.py)
-  split_layers.py                  the splitter script (keep the notebook's copy in sync when editing!)
-  README.md, requirements.txt
-tools/voices/
-  make_voices.py                   makes the voice lines with Kokoro (kokoro-onnx), runs on a normal CPU
-  .gitignore                       model files and out/ are not committed
-tools/music/
-  Make_Music.ipynb            Colab notebook: 2 academy + 4 fight looping 30 s tracks with MusicGen -> duel_music.zip
-series/cast.md                     the cast list (the user fills it in; Arthur and Geist filled as examples)
-site/
-  index.html                       the reader: chapter menu + engine (CSS + JS in one file; GSAP from cdnjs); no chapter data
-  series.js                        series title, playlist link, chapter list (reading order), music themes and their takes
-  chapters/duel/chapter.js         the duel's scene plan (60 panels) and music zones; calls registerChapter({...})
-  chapters/duel/*.webp             its layers: panel_XX_background/characters, bubble_very_well/go_easy/going_easy_huh/not_using_spells, bubble_07..18
-  music/<theme>_<n>.mp3            calm_1, tension_1, battle_1, battle_2, battle_dark_1, battle_dark_2, climax_1, climax_2 (~2.8 MB)
-  README.md                        layout, how to add a chapter, the scene plan settings, music themes
-tools/music/make_loop.py           rebuilds a MusicGen take as a seamless, beat-aligned, evenly loud loop
+HANDOFF.md                            this file
+series/cast.md                        the user's cast list (~95 characters: looks, magic colours, first episodes)
+site/                                 the reader (details: site/README.md)
+  index.html                          engine, chapter menu, auto-scroll, sound; no chapter data inside
+  series.js                           title, playlist, credit, chapter list, mix, autoScroll, music themes, recorded sounds
+  chapters/094/chapter.js             chapter 94 (90 scenes)      (*.webp from the chapter zip: not in git)
+  chapters/094-demo/chapter.js        the 19-panel demo           (*.webp copied by cut_chapter.py, cover.jpg: not in git)
+  music/<theme>_<n>.mp3, sfx/*.mp3    loops and the user's two sword recordings
+tools/
+  build_notebooks.py                  rebuilds the chapter notebooks + PC kit zip from the scripts (run after script changes)
+  layer-splitter/split_layers.py      the AI splitter (panels, bubbles, cutouts, fill)
+  make-chapter/                       make_chapter.py, gpu_check.py, Make_Chapter.ipynb, Make_Chapters_Kaggle.ipynb, README
+  pc/                                 the chapter kit for Windows: Setup.bat, Make Chapters.bat, README.txt (CRLF)
+  director/                           draft_chapter.py (first draft, carry-over), cut_chapter.py (demo cuts), README
+  reader/                             reader.py + Read Storyteller.bat + README.txt (PC reader, CRLF), build_reader.py (all zips),
+                                      record_demo.js + render_demo_audio.js (the demo video), cover.html (link-preview cover)
+  music/                              Make_Music.ipynb (MusicGen on Colab), make_loop.py
+  voices/                             make_voices.py (Kokoro; voices are off)
+dist/                                 built zips and the video (not committed)
 ```
 
-Commits on the branch, oldest first:
+---
+
+## 4. The pipeline
+
+```
+CBZ ─► chapter maker (Colab / Kaggle / PC GPU) ─► chapter_<id>.zip (~5-15 MB)
+    ─► user uploads it to a Claude session ─► draft_chapter.py (+ carry-over) ─► Claude directs chapter.js
+    ─► Playwright checks ─► preview for the user ─► approval / notes
+    ─► series.js line ─► reader pack for the PC (build_reader.py --pack <id>) + rebuilt website zip for Cloudflare
+```
+Processing only has to stay ahead of directing; directing + approval is the bottleneck.
+
+---
+
+## 5. The splitter (`tools/layer-splitter/split_layers.py`)
+
+Per chapter strip (all pages joined, natural file order):
+1. **Panels:** rows of the most common border colour are gutters (`find_panels`).
+   **New this session — `split_tall`:** a "panel" over **2.5 strip widths** tall is usually long plain space (black with embers, a
+   fade, a texture) with pictures inside. `row_busyness` = share of a row's pixels > 40 away from the row's median colour (in 2048-row
+   blocks, every 2nd column). Plain rows (< 0.03) in runs ≥ **0.5 strip widths** are dropped like gutters; segments with fewer than
+   120 busy rows are crumbs and dropped; a piece still over **4.5 strip widths** is cut at its calmest row (31-row smoothed
+   busyness, slight pull to the middle) and marked `continues: panel_XX` unless the cut fell in a plain band. Chapter 94 is
+   unchanged by this (its tall panels are real pictures). Checked by eye on chapters 2, 3, 4.
+2. **Bubbles:** near-white area with holes; holes are black ink (> 30% darker than 100), lettering 2–45% of the filled shape,
+   roundish, ≥ 2 letter-sized dark shapes, ≤ 5% colourful hole pixels. Saved grown 15 px.
+3. **Characters:** `birefnet-general` + `birefnet-hrsod` (rembg), each on the panel and its mirror (averaged), max-combined;
+   ViTMatte edges; `pymatting` edge colours. Note: rembg squashes every panel to 1024×1024 — why tall panels must stay ≤ 4.5 widths.
+4. **Background:** LaMa (≤ 2048 px on GPU, halving on out-of-memory).
+5. Writes `original.png`, `background.png`, `characters.png`, `bubbles/`, `layers.json` (panels may carry `continues`).
+
+**Providers:** CUDA, else DirectML, else CPU; `onnxruntime.preload_dlls()` when present; `Models.timings`, `cutouts_on_gpu`.
+**Speed:** ~3.7 s per cutout model per panel on a T4, ~10 s per panel all in; 13–23 min per chapter (Kaggle logs).
+**Model comparison, known limits, solved problems:** as before — general most reliable, hrsod the partner, lite/massive/dis/
+isnet-anime rejected; sound-effect lettering stays in the character layer; undetected bubbles stay in the art.
+
+| Problem already solved (do not reintroduce) | Fix |
+|---|---|
+| `simple-lama-inpainting` pins Pillow < 10 | install with `--no-deps` |
+| `simple_lama_inpainting.utils` has an empty `__init__` | import from `simple_lama_inpainting.utils.util` |
+| joined strips used 6.7 GB for detection | bubbles as small crops, int16 |
+| capping numba/Pillow pulled an old rembg | no caps; `sessions_class[name](name, options, providers=...)` |
+| ORT GPU on a T4 with CUDA 13 silently used the CPU | start on CPU, `_move_to_gpu` tries `HEURISTIC` then `DEFAULT` |
+| ORT memory pools starved LaMa | `kSameAsRequested` + arena shrinkage; LaMa empties torch's cache |
+| eyes / white faces taken as bubbles | letter-shape + colour rule |
+| **"Image size exceeds WebP limit of 16383 pixels"** (10 Kaggle chapters) and squashed cutouts in tall panels | `split_tall` (above) |
+
+---
+
+## 6. The chapter maker (`tools/make-chapter/`)
+
+`make_chapter.py --cbz-dir … --out … --chapters 1-5,94 [--skip '{"94":[0,69]}'] [--redo] [--shard K/N] [--done-dir D] [--max-hours H]`
+1. Finds CBZ files by number (also in subfolders); ids are 3-digit (`094`, `094-5` for 94.5).
+2. Drops non-story pages: first two / last two pages compared (16×32 dhash, ≤ 110 of 512 bits) with chapter 94's **series title
+   page** and **creators' promo page** fingerprints. **New:** a match also needs `distance < bits set in the page` — a plain page
+   (black, a fade, a small picture on black) has almost no bits set and sat near every fingerprint (a blank page was only 72 bits
+   from the promo page). Kaggle's chapter 22 dropped page 000 as "promo" before this fix: glance at `sheets/pages.jpg`.
+3. Joins pages (other widths scaled to the most common), runs the splitter.
+4. WebP (bg q80, chars q85, bubbles q90, method 6). Each bubble gets a panel (inside it, else the nearest, never a tiny one),
+   in-panel `x, y, w, h`, `between_panels`, `suspect`. Tiny panels: < 120 px a side or < 40,000 px². Panels carry `continues`.
+5. Zip built locally, moved into `--out` whole. Chapters with a zip in `--out` / `--done-dir` are skipped — **except** zips made
+   before the tall-panel fix (`made_before_tall_fix`: a panel taller than 4.5 strip widths), which are remade automatically.
+   `--shard K/N` (stable across runs), `--max-hours`, per-step timings in `chapter.json` `seconds`.
+
+**The zip** `<id>/`: `panel_XX_background.webp`, `panel_XX_characters.webp`, `bubble_XX.webp`, `chapter.json`,
+`sheets/pages.jpg`, `sheets/panels_XX-YY.jpg` (5 per sheet, TINY marked), `sheets/bubbles.jpg`.
+
+| Where | How | Notes |
+|---|---|---|
+| Colab | `Make_Chapter.ipynb`: T4 + High-RAM, `CHAPTERS`, Run all, allow Drive | Drive in/out; tab must stay open |
+| Kaggle | `Make_Chapters_Kaggle.ipynb`: GPU **T4 ×2**, Internet On (verified phone), dataset as Input; **Save Version → Save & Run All** | two processes (`--shard 1/2`, `2/2`), `MAX_HOURS = 11`, logs `log_gpu0/1.txt` in Output; next run: add the previous version's Output as Input (→ `--done-dir`). Update the notebook via **File → Import Notebook**. |
+| PC (RTX 5050) | `Storyteller-PC-Tools.zip` → `Setup.bat`, then `Make Chapters.bat` | Python 3.12, torch cu128, models in the kit folder, output `finished/` |
+
+`gpu_check.py` (exit 3 = cutouts on CPU) → Kaggle installs `onnxruntime-gpu==1.22.0`; PC tries that, then DirectML.
+Delivery: the user uploads zips into the session, 2–3 per message. (A private `Storyteller-data` repo push was proposed, never approved.)
+
+---
+
+## 7. Directing (`tools/director/`) and the house style
+
+* `draft_chapter.py ZIP --out site/chapters/<id>/chapter.js --title "…" [--carry-over OLD/chapter.js --report]`: first draft
+  (every non-tiny panel; `fit: "pan"` when taller than 1.45× its width; length from shape; push-in; dust; bubbles in reading
+  order; suspect bubbles as `// check`; music one `calm` stretch). **New:** pieces of one tall picture (`continues`) get plain
+  `cut` exits/entries and a `// continues …` note. Carry-over pairs panels by size (±3 px), keeps bubble timings, moves music.
+* `cut_chapter.py SOURCE --id --title --panels 01,02,70-72 --music "tension:01,climax:70,calm:92"`: a demo chapter from a directed one.
+* **The director playbook skill is still not written** — the house style lives here until then:
+  * **Camera:** gentle push-in (1 → 1.06–1.2) or settle-out (1.1–1.16 → 1) per panel; `origin` on the subject; tall panels
+    `fit: "pan"` with a slight `chars` scale for depth; wide shots drift sideways (`camera x` ±4–7); never crop lettering (panel 34:
+    zoom out instead of in, so "F---!" stays).
+  * **Transitions:** `fade` by default; **zoom-through** (`exit: "zoom", focus` → next `enter: "zoom"`) for build-ups into a big
+    moment (78 → 79 TEMPEST); `cut` for direct continuations and carried match cuts.
+  * **Impacts:** shake + flash + burst + sfx at the same moment. `deflect` for blades turned aside / light TING, `parry` for heavy
+    clashes, `crash` + a held white-out (`flashes hold`, strength 1) for the biggest hit, `shatter` sound + `shatter` burst for glass,
+    `thud` for bodies hitting the floor, `crack` for a stab, `grip` for anger (GRIT), `glint` for a blade catching light.
+  * **Particles:** embers in the fighter's colour (`mana` blue for Arthur's and Geist's sword mana, `ember` orange for Geist's anger,
+    **`wind`** green-white for Arthur's TEMPEST), `speed` streaks for dashes/swooshes, `dust`/`paper` for calm scenes; `amount`
+    0.25 (quiet) → 1.7 (TEMPEST).
+  * **Bubbles:** pop where they sit, `at` after the reader can see the speaker (0.06–0.4), several staggered; lettering drawn on art
+    `pop: false`; a bubble the maker placed outside a `pan` panel (y < 0 or y > h) must be moved inside, or it scrolls off / never
+    shows (094: bubble_24 → y 2300 with `out: 1`; bubble_26 → y 10); a bubble low on a tall pan panel needs `out` ≥ 0.92.
+  * **Music:** one theme per story stretch; climax for the finale, calm after the storm.
+  * **Quiet beats:** after a big moment, one still panel with low particles and no sfx (75 "No.", 83 the calm smile).
+  * Use `series/cast.md` for speakers and colours; confirm names with the user when unsure.
+
+---
+
+## 8. The reader (`site/`, details in `site/README.md`)
+
+* GSAP 3.12.5 + ScrollTrigger (cdnjs); one pinned stage; one timeline, **1 unit = 1vh**, `scrub: 0.7`.
+* `series.js` first; `index.html#<id>` picks the chapter; `chapters/<id>/chapter.js` → `registerChapter(...)` → `boot()`.
+  "Chapter not ready" = that chapter.js did not load (on Cloudflare a missing file returns index.html, so it shows as that).
+* **Per panel:** `.scene` → `.zoom` → `.shake` → `.pan` → `.rig` → `.frame` (`img.bg`, `canvas.fx-mid`, `img.chars`); bubbles in `.rig`,
+  nudged on screen (56 px clear at the top for the buttons).
+* **Scene settings:** `length`, `fit`, `camera`/`origin`, `bg`/`chars` (`over`), `bubbles` (`src, x, y, w, h, at, out, pop`), `shakes`,
+  `flashes` (`at, color, strength, rise, hold, fall`), `sfx`, `fx` (`ambient`, `tint` paper/mana/ember/**wind**, `amount`, `bursts`
+  splinters/sparks/ring/flare/shatter with `at`, `from`, and `tint` for sparks/flare), `enter`/`exit` cut/fade/zoom + `focus`.
+* **New this session:**
+  * `wind` tint; burst `tint`; bubble `out` (fade moment, default 0.8; ≥ 0.92 stays).
+  * **Credit line** from `SERIES.credit` on the title and end cards (`**bold**` for names): "The Beginning After the End: story by
+    TurtleMe, art by Fuyuki23, published by Tapas. A non-commercial fan tech demo by Baraa, built with AI. All rights…".
+  * **Auto-scroll** (`makeAutoScroll()`): ▶ Auto-scroll on the title card + Auto/Pause next to Sound at the top; **slider 0.5×–2×**
+    (`localStorage` key `storyteller.autoSpeed`); base **60 units/s**; holds: bubbles `0.6 + w*h/75000` clamped 1–4 s, big moments
+    (crash 1.3, shatter 0.9, parry 0.7, deflect 0.6, thud 0.7, strong flash 0.8, held flash 1.4, shatter burst 0.9), holds closer
+    than 8 units merged; actual hold = `0.3 + pauses × hold / √speed` with **`SERIES.autoScroll.pauses = 0.65`** (the user found
+    1.0 too long); crawl 4% during a hold; brake τ 0.18 s, set off τ 0.4 s; wheel / touch / scroll keys / manual scroll pause it;
+    stops at the end card; keys on the controls work the controls. Measured: first bubble hold 1.9 s at 1×; chapter ≈ 6 min at 1×.
+  * **PC-only:** loads `__chapters.js` (chapter menu built from the chapters folder) on http + localhost/IP hosts, and on
+    localhost shows "Read on your phone" with the LAN address and a QR code (`qrcode-generator@1.4.4` from jsdelivr).
+* **Reduced motion:** plain column, no animation, sound or auto-scroll.
+* **Bugs already fixed:** no `invalidateOnRefresh`; the pan lives on `.pan`; `.zoom` centred by hand.
+
+---
+
+## 9. Sound
+
+* Off until **Play with sound**. Effects fire when scrolling forward past their moment (not on jumps > 25 units).
+* Synthesised (`makeEffects(ctx, out)`): whoosh, swish, crack, grip, flame, clang, skid, tap, thud, glint, shatter, crash, gust.
+  Recorded (`SERIES.sounds`): the user's Sekiro `deflect` and `parry` (trimmed, high shelf down, ~2 semitones lower, ±2% pitch).
+* **Chain:** effects bus 0.65 → limiter (−10 dB, ratio 20, 1 ms) → tanh soft clip. **New:** all music goes through a **music bus
+  `SERIES.mix.music` = 0.65** that **dips to `mix.dip` = 0.5** under every effect (τ 15 ms down, back after 0.35 s, τ 0.25 s).
+  Reason: at the old balance the climax drums buried most effects under the limiter (measured). Tested: the bus dips at TING.
+* **Music:** themes per stretch, takes with volumes, crossfades (in 40 / out 60 units), MP3 padding skipped. Library: calm_1 0.5,
+  tension_1 0.4, battle_1 0.53, battle_2 0.63, battle_dark_1 0.58, battle_dark_2 0.5, climax_1 0.75, climax_2 0.56.
+  **094:** tension 1–14, battle 15–31, battle_dark 32–48, battle 49–57, climax 58–87, calm 88–92. **094-demo:** tension 01–07,
+  climax 70–89, calm 92.
+* Making music: `Make_Music.ipynb` → `make_loop.py`. The AI cannot listen: measure and say so.
+* User's taste: Academy warm/light fantasy or music box; fights cinematic orchestral, choir and drums; Relictombs dark synthwave;
+  reading playlist link on the title card (Spotify, cannot be used as audio).
+* Voices off (`tools/voices/make_voices.py` works; playback code in commit `77414a1`).
+
+---
+
+## 10. Chapter 94 "The Duel" (approved)
+
+* **Source:** `The Beginning After the End 94 - Chapter 94.cbz`, 70 pages × 940 px (000 title and 069 promo dropped), strip
+  940 × 125,394 → **92 panels** (90, 91 tiny, skipped) → **90 scenes**, **26 bubbles**. Panel N = old duel panel N − 9 for 10–69.
+* **Cast in it:** Arthur Leywin (red hair, DC uniform; blue mana; green-white wind at the end), Professor Geist (spiky brown hair,
+  headband; blue-flame sword; red-orange anger), **Kathyln** (black hair) and **Feyrith** (golden-blonde, two front braids) with
+  **Sylvie** (white fox form) in panel 04 — confirmed by the user; panel 03 students unnamed.
+* **Opening (1–10):** 01 blade in the sky, fade in, glint, mana embers · 02 pan down Arthur → Geist · 03 sideways drift over the stands
+  · 04 push in on Sylvie · 05 Geist's smirk "Quite a nice weapon…" · 06 tilt up, "Since you're an Augmenter / …let you choose…" ·
+  07 Arthur "It doesn't matter." (quiet) · 08 Geist trembles (small shakes, grip, orange embers) · 09 pan, "Arrogant brat!", GRIT
+  jolt + red flash, "I insist." · 10 Arthur "Please use whatever you're most confident in." (fade in, not the old cut).
+* **The duel (11–69):** carried over unchanged from the approved old plan (section notes restored at +9: first exchange 20,
+  onslaught 25, leaping slash 32, flame pillar 38, leap and slide 45, stands 49, counterattack 50, "Professor." 58, clash 60,
+  "a totally different level" 65). Panel 34 zooms out now.
+* **Finale (70–92):** 70 TING (deflect, sparks) · 71 DASH (speed) · 72 the charge (wind embers, swish, gust) · 73 Geist blocks (parry,
+  blue flash, flare) · 74 "You think this is enough?!" · 75 "No." (still) · 76 the flip, long pan, "But this might be." (moved into
+  the panel, `out: 1`) · 77–78 the hand gathering wind, 78 zooms into 79 · **79 TEMPEST** (green-white flash held 0.04, shakes, gust,
+  wind flare + ring) · 80 Geist shields his face · 81 the blades rain down (thud, ring) · 82 SWOOSH · 83 the calm smile (still) ·
+  84 CRACK (shatter sound + burst across the screen) · 85 SCRATCH (red flash) · 86 "S-stop!" · **87 CRASH** (shatter at the top,
+  crash with a full white-out held 0.06, shakes) · 88 THUD · 89 STAB (crack, blue flash, sparks) · 92 "Thank you for your
+  guidance." (moved to y 10, slow pan up, calm music).
+
+---
+
+## 11. Sharing: websites, the demo, LinkedIn
+
+* **Builds** (`tools/reader/build_reader.py`; images must be in `site/chapters/<id>/`):
+
+| Command | Output | Goes to |
+|---|---|---|
+| `build_reader.py` | `dist/Storyteller-Reader.zip` (PC reader + chapters in series.js) | user's PC (unzip) |
+| `build_reader.py --pack 094` | `dist/reader-pack_094.zip` | PC: `new chapters` folder |
+| `build_reader.py --reader-update` | `dist/reader-update.zip` (index.html + series.js) | PC: `new chapters` folder |
+| `build_reader.py --site` | `dist/Storyteller-Site.zip` (+ `_headers` noindex, `robots.txt` Disallow) | Cloudflare `tbate-reader` |
+| `build_reader.py --site --chapters 094-demo --public https://tbate-scroll-demo.pages.dev --cover site/chapters/094-demo/cover.jpg --out Storyteller-Demo.zip` | `dist/Storyteller-Demo.zip` (preview tags, cover, search engines allowed: LinkedIn's crawler obeys robots.txt) | Cloudflare `tbate-scroll-demo` |
+
+* Website zips list **every folder as its own entry** (`add_folder_entries`): Cloudflare's drag-and-drop skipped the chapter folder
+  of a zip that only listed files (that was the "Chapter not ready" problem). The first deployment's 404 at the root was never
+  explained (likely the same zip issue); a new deployment of the rebuilt zip fixed everything.
+* **Demo cut 094-demo:** panels 01, 02, 04, 06, 07, 70–72, 74–76, 78, 79, 81, 84, 86, 87, 89, 92 (19 scenes, 8 bubbles, 4850 units).
+* **Cover** (`site/chapters/094-demo/cover.jpg`, not in git): `tools/reader/cover.html` (template, notes inside) + panel 79 crop.
+* **Video** `dist/Storyteller-Demo-Video.mp4` (not in git): 56 s, 1080×1350, 30 fps, H.264 CRF 18 + AAC 192k, −14.8 LUFS, peak −1.6.
+  How: serve the unzipped demo site on :8803 under the host `tbate-scroll-demo.pages.dev` (`--host-resolver-rules`), then
+  `node tools/reader/record_demo.js <dir>` (viewport 540×675 @2x, Playwright fake clock stepped 1/30 s, HUD sound button hidden,
+  scroll path ≈110 units/s, slower at 79/87/92/84, title 2.6 s, end card 3.4 s → frames), `record_demo.js <dir> cues` (when each
+  sound fires), `render_demo_audio.js <dir>` (music + effects in an OfflineAudioContext with the site's `makeEffects` and chain;
+  music bed 0.55 dipping to half under each effect) → ffmpeg `loudnorm=I=-14.5:TP=-3:LRA=11,alimiter=limit=0.84` → mux.
+  The music mix for it was made in numpy from the loops (tension 0–14.9 s ×0.4, climax from 12.9 s ×0.75, calm from 46.4 s ×0.5,
+  fades 1–2.5 s). **Do not use ffmpeg `-stream_loop` on the MP3 loops** (it clicked); tile the decoded samples.
+  `<dir>` needs `gsap/package/dist` (npm pack gsap@3.12.5) and `fonts/fonts.css` + `fonts/woff/` (@fontsource bangers,
+  archivo-narrow, ibm-plex-mono 5.1.0, served as `http://fonts.local/…`).
+* **LinkedIn post draft** (sent; the user rewrites it): hook "What if a webcomic chapter played like a film while you scroll? 🎬",
+  what it is, the 5 phases (cloud-GPU chapter maker → AI panels/bubbles/BiRefNet/LaMa → Claude directs → the user reviews → GSAP +
+  Web Audio reader), "I brought the idea, the taste and the decisions; AI made it possible…", demo link, credits, 5 hashtags.
+  Advice given: upload the video natively, link in the post or first comment, check the card at linkedin.com/post-inspector.
+
+---
+
+## 12. The PC reader (`tools/reader/`)
+
+* `Read Storyteller.bat` (CRLF): finds `py -3` or `python`, else explains how to install Python (same as the chapter kit), runs
+  `reader.py`. `reader.py` (standard library, Python ≥ 3.8): adds every zip in `new chapters/` whose entries are all under
+  `chapters/`, `music/`, `sfx/`, `index.html`, `series.js` (others are skipped with a message: a maker zip goes to Claude), moves it
+  to `new chapters/added/`; serves `reader/` on port 8000 (or the next free, up to 8010) with ThreadingHTTPServer, explicit MIME
+  types, `Cache-Control: no-cache`; answers `/__chapters.js` and `/__phone.json`; opens the browser; prints the phone address.
+* First run on Windows: the firewall asks for Python → **Private networks → Allow**. Phone problems: same Wi-Fi, network profile
+  **Private**, firewall app list (all in `README.txt`).
+* PowerShell could not be tested here (downloading it was refused), hence Python.
+* **Run from the project** (GitHub download): with no `reader/` folder next to it, `reader.py` serves `../../site` and its inbox
+  is `tools/reader/new chapters/` (git-ignored); it lists chapters with no pictures under "No pictures yet for".
+
+---
+
+## 13. Next steps (in order)
+
+1. **Kaggle rerun:** ask whether it finished; get the zips + `log_gpu0/1.txt`. Check dropped pages (`sheets/pages.jpg`) and the new
+   tall-panel splits by eye on a couple of chapters, then **direct chapters from Episode 1**, one plan + preview per chapter, user
+   approval, then a reader pack and rebuilt website zip.
+2. **Write the director playbook** as a repo skill from Section 7 (use the skill-creator / writing-for-agents skills).
+3. **PC reader / PC kit:** when the user runs them on Windows, fix what the first run shows (ask for screenshots of the black window).
+4. **Music library:** the user runs `Make_Music.ipynb`; loop the takes, add to `SERIES.themes`.
+5. Keep the websites in step: after any reader change, rebuild `--site`, the demo and `--reader-update`, send them, remind the
+   user of the three upload steps (Section 3) and **Ctrl + F5**.
+6. **Optional (ask first):** a PR for `claude/new-session-4xc7k0`; a "How it's made" page with an interactive layer slider (offered,
+   the user chose other items first); republishing the Claude preview; automatic delivery via a private data repo.
+7. **Later:** voices; light directing mode for dialogue chapters.
+
+---
+
+## 14. Instructions for the next AI session
+
+**Working with the user**
+* Plain language, one step at a time, exact click paths; attach files (SendUserFile) instead of describing them.
+* Plan before big work and wait for "go"; small fixes and follow-ups can just be done.
+* You cannot listen to audio: measure (loudness, peaks, clicks, effect-vs-music level at each cue) and say what you measured.
+* Reproduce Colab / Kaggle / Windows / Cloudflare problems here when possible before answering; when it cannot be reached
+  (Cloudflare, `*.pages.dev`), give quick test URLs (e.g. `/chapters/094/chapter.js`) and ask for screenshots.
+
+**Keep files in sync**
+* After editing `split_layers.py`, `make_chapter.py` or `gpu_check.py`: `python tools/build_notebooks.py`; commit the notebooks.
+* After editing `site/index.html` / `series.js`: rebuild the zips (Section 11) for the user.
+* `.bat` and `tools/reader/README.txt` keep **CRLF**.
+
+**Recreating the working set in a fresh container**
+* Chapter images are not in git: ask for `chapter_094.zip` (Drive `Storyteller/chapters`), unzip its `094/*.webp` into
+  `site/chapters/094/` (not the tiny panels 90, 91), then `cut_chapter.py …` (Section 11) for `094-demo`, then rebuild the cover
+  (`tools/reader/cover.html`) if a demo zip is needed.
+
+**This cloud environment**
+* No GPU. **Blocked:** Hugging Face, cdnjs, Google Fonts, download.pytorch.org, Spotify, Pixabay, freesound, archive.org,
+  developers.cloudflare.com, `*.pages.dev`. **Reachable:** GitHub, PyPI, npm (use npm for GSAP, fonts, qrcode-generator).
+  Downloading/running external binaries (e.g. PowerShell) was refused by the permission system.
+* ffmpeg/ffprobe are installed; `pip install opencv-python-headless scipy` is needed to import `split_layers` (torch is not
+  installable: test the maker with stand-in models: `character_alpha`, `character_colours`, `fill_background`, `timings`).
+* **Site tests:** serve `site/` with `python3 -m http.server 8765`, drive it with the preinstalled Playwright, route cdnjs GSAP to a
+  local copy, abort or route Google Fonts; stop with `pkill -f "http.serve[r] 8765"`. Useful: `--host-resolver-rules=MAP
+  <name>.pages.dev 127.0.0.1` to test as the website; `page.clock` for deterministic frames; `--autoplay-policy=no-user-gesture-required`
+  and patching `AudioParam.prototype.setTargetAtTime` to check ducking.
+* Commit and push to `claude/new-session-4xc7k0` (or the branch the session is given) after each change.
+* Do not put model names in commits or files.
+
+---
+
+## 15. Third session's commits (oldest first)
 
 | Commit | What |
 |---|---|
-| `a417406` | Add the layer splitter |
-| `76594ac` | Combine two cutout models |
-| `5dd8fc8` | Fix the install on Colab (Pillow pin) |
-| `580c33b` | Fix the inpainting imports |
-| `9073d08` | Option to join webtoon slices |
-| `6af869f` | Cut memory use |
-| `5e859aa` | Pin numba and Pillow (later reverted) |
-| `f389d59` | Bubbles need black ink |
-| `310a6b1` | Support old rembg |
-| `5203d97` | Low-memory model loading |
-| `9dd21dc` | GPU support |
-| `45631a1` | Model pair, flip averaging, edge refinement |
-| `d4c6665` | Keep confident lines solid; one model on CPU |
-| `805f35f` | T4 cuDNN fix |
-| `8ee6c9f` | GPU memory fix |
-| `733d326` | Quiet the expected cuDNN errors |
-| `a6a9a74` | Scroll site, panels 1–10 |
-| `77414a1` | Particles, sound effects, voices, music slot |
-| `ab1bc52` | Handoff document |
-| (this session) | Merge into `claude/new-session-em88ar`; panels 11–60, all bubbles, voices off, music zones, pan fix |
+| `5ea630f` | merge the second session's last commits (Kaggle notebook, PC kit, handoff) into this branch |
+| `b791f39` | split very tall panels, remake old zips that had them, keep plain pages |
+| `de41f03` | chapter 94 directed in full; wind tint, burst tint, bubble `out`; images out of git |
+| `45b9025` | the PC reader (reader.py, Read Storyteller.bat, build_reader.py, phone QR card) |
+| `cab2a0a`, `7a628bb` | retire the old duel cut |
+| `13cc51b` | website zip for Cloudflare Pages |
+| `5cf0520` | public demo: credit line, cut_chapter.py, 094-demo, link preview, video recorder |
+| `e90f634` | website zips list every folder as an entry |
+| `78a7294` | sound effects in the demo video's soundtrack |
+| `4c15165` | site sound rebalance: music bus with ducking; `--reader-update` |
+| `fd4009b` | auto-scroll with a speed slider, slowing for bubbles and big moments |
+| `08123e9` | shorter auto-scroll pauses (`SERIES.autoScroll.pauses`) |
 
----
-
-## 4. Stage 1: the layer splitter (done)
-
-### What it does
-For the uploaded images (with `JOIN_SLICES = True` they are first stacked into one long strip, in natural file-name order, so panels cut between slices come out whole):
-
-1. **Finds the panels.** It looks for gutter rows in the most common border colour.
-2. **Finds the speech bubbles.** A bubble is a near-white area with holes; the holes must be **black ink** (more than 30% of hole pixels darker than 100), the lettering must be 2–45% of the filled shape, and the shape must be roundish. It saves each bubble as a see-through PNG, grown 15 px to include the outline.
-3. **Cuts out the characters** (`characters.png`):
-   * Uses `birefnet-general` + `birefnet-hrsod` via rembg. Each model also runs on the mirrored panel and the two results are averaged; the two models are then combined with a maximum.
-   * **ViTMatte** (rembg's `vitmatte_alpha`) refines the edges, with two corrections: its output tops out at 254, so values of 250 and up are snapped to 255; and pixels the models scored 200 or more keep the models' value, because ViTMatte thins speed lines.
-   * Edge colours are unmixed from the background with `pymatting.estimate_foreground_ml`. Fully solid pixels keep the exact drawn colours.
-   * Without a GPU only `birefnet-general` runs, for memory reasons.
-4. **Fills the background** where characters and bubbles were, using LaMa (`simple-lama-inpainting` weights, loaded by hand). It fills at up to 2048 px on the GPU (800 px on the CPU) and retries at half size if the GPU runs out of memory.
-5. **Writes per panel:** `original.png`, `background.png` and `characters.png`; plus the `bubbles/` folder, `layers.json` (positions) and `preview.png`.
-
-### How the user runs it
-1. Upload `Split_Manga_Layers.ipynb` to Colab (**File → Upload notebook**).
-2. Set **Runtime → Change runtime type → T4 GPU + High-RAM**.
-3. Click **Runtime → Disconnect and delete runtime** (to clear old installs), then **Run all**.
-4. At **Choose Files**, select **all original slices at once** (e.g. `8.webp` … `53.webp`), never the output files.
-5. `layers.zip` downloads at the end.
-
-* **Speed:** about **8–9 s per panel** on the T4 (6 AI passes per panel). The first run downloads about 2.3 GB of models.
-* **Expected noise** in the output, all harmless:
-  * a red pip "dependency conflicts" message in Step 1 (gradio, cudf, cuml and pytensor complain about the Pillow and numba versions);
-  * the line `Cutouts run on the graphics card (fast), background fill on the graphics card (fast).` is the one to check.
-
-### Results for this chapter
-* Slices `8.webp`–`53.webp` (940 px wide), joined into one strip of 940×84793 → **65 panels, 18 bubbles**.
-* `bubble_05` and `bubble_06` (in panel 19) are **two eyes misdetected as bubbles**: ignore them.
-* The full `layers.json` zip is about **195 MB**, too big to upload in one go. The user sends subsets (e.g. `layers.json`, `bubbles/` and `panel_01`–`panel_10`). They have twice forgotten `layers.json` and `bubbles/`, so remind them.
-
-### Model comparison (done on 5 of the user's panels, 2026-11-02)
-| Model | Verdict |
-|---|---|
-| `birefnet-general` | Most reliable. Keep as the main model. |
-| `birefnet-hrsod` | Clean. Adds only 0.1–0.3% missed edge pixels: the partner model. |
-| `birefnet-general-lite` (the old partner) | Added **5–7% wrong background** (auras, gaps between legs, sound effects). Dropped. |
-| `birefnet-massive` | Missed both characters in a face-off panel. |
-| `birefnet-dis` | Missed spiky hair and half a face. |
-| `isnet-anime` | Missed most of the fighters. |
-| `bria-rmbg` | Not tried: non-commercial licence. |
-
-* Flip averaging removed wrongly included glows (up to 2.5% of a panel).
-* ViTMatte removed see-through ghost patches.
-
-### Known limits
-* Sound-effect lettering ("PRY", "CLENCH") stays in the characters layer, often half-transparent.
-* Background fills are a little smudgy where characters were.
-* ~~Small eye-shaped false bubbles~~ fixed (second session): a bubble now needs at least 2 letter-sized dark shapes inside and
-  almost no colour (≤ 5% of hole pixels with max−min > 60). On chapter 94 this removed 4 eyes and Sylvie's white fox face and
-  kept all 26 real bubbles (even "NO.", which has 3 shapes). Before the fix those false bubbles were cut out of the character layer.
-* Without a GPU, a joined chapter peaks around 12.7 GB of RAM, so keep High-RAM on.
-
-### Problems already solved (do not reintroduce)
-| Problem | Fix |
-|---|---|
-| `simple-lama-inpainting` pins Pillow < 10, which fails on Colab's Python 3.13 | Installed with `--no-deps` |
-| `simple_lama_inpainting.utils` has an empty `__init__` | Import from `simple_lama_inpainting.utils.util` |
-| Joined strips used 6.7 GB just for detection | Bubbles are kept as small crops and int16 is used: now 1.4 GB, byte-identical output |
-| Capping numba and Pillow made Colab install an old rembg (< 2.0.78), whose `new_session()` rejects `sess_opts`; without low-memory options the models needed 14 GB and Colab killed the run (`^C`) | Caps removed. Sessions are built directly with `sessions_class[name](name, options, providers=...)` |
-| ONNX Runtime GPU 1.31.1 (CUDA 13, as on Colab) fails on the **T4** with its default cuDNN search (`HEURISTIC_QUERY_FAILED`, `CUDNN_STATUS_NOT_SUPPORTED`) and silently fell back to the CPU | Sessions start on the CPU, then `_move_to_gpu` tries `cudnn_conv_algo_search` `HEURISTIC` and then `DEFAULT` (on the T4 only `DEFAULT` works), each checked with a warm-up run. ORT logging is muted during the tries. |
-| On the GPU, the three ORT sessions kept their memory pools and LaMa ran out of CUDA memory | Each session uses `arena_extend_strategy: kSameAsRequested` and the run option `memory.enable_memory_arena_shrinkage = gpu:0`; LaMa empties torch's cache after each fill |
-| The notebook's Step 4 zipped an empty folder when Step 3 failed | Step 4 now stops with a clear message |
-
----
-
-## 5. Stage 2: the choreography for panels 1–10 (done, in `SCENES`)
-
-Focus points are percentages of the panel.
-
-| # | Panel | What happens |
-|---|---|---|
-| 1 | an onlooker's torso | slow push-in, dust |
-| 2 | **"VERY WELL."** (the armoured swordsman) | character comes forward; bubble pops at 0.16 with its voice; **zoom-through into the sword hilt (81%, 90%)** |
-| 3 | sword stuck in wood, **"PRY"** | arrives from the zoom; shake, crack sound and wood-splinter burst at 0.30 |
-| 4 | the throw, **"WOOSH"** | camera tilts up, whoosh sound; **zoom-through into the raised hand (49%, 41%)** |
-| 5 | fist catches the sword, **"CLENCH"** | white flash, shake, grip sound, dust ring |
-| 6 | **"BURN"**, tall panel | pans down; blue mana embers, flame sound and flare; bubble "I'LL BE SURE TO GO EASY ON YOU." at 0.38 with its voice; **music starts here** |
-| 7 | the dash | sideways sweep, speed streaks, swish sound |
-| 8 | **Arthur** (long red hair) | push-in on his face (46%, 32%); blue embers |
-| 9 | **"CLANK"**, tall panel | pans down; red flash (strength 0.55), hard shake, clang sound, spark burst with a shockwave ring at 0.46 |
-| 10 | the face-off | settles in; **final zoom into the swordsman's eye (80%, 45%)**, then the "To be continued" card |
-
-### Panels 11–60 (added in the second session)
-Story beats, so later choreography stays consistent. The swordsman is **Professor Geist** (bubble 15 says so).
-| Panels | Beat | Main effects |
-|---|---|---|
-| 11–15 | first exchange: SLASH, SKIDD, "Going easy, huh?", FIRM grip, DASH | sparks, skid, flame flare; zoom-through 14 → 15 |
-| 16–22 | the onslaught, top-down VWOOSH (18, pan), "not using any spells", "Who does he take me for?!", "disciplinary committee… rats" | clangs, speed lines |
-| 23–28 | leaping SLASH, Arthur: "Is there really a need for me to attack…", "F---!", flame hand, zoom-through 27 → 28 (Arthur's eye) | thud, flare, glint |
-| 29–35 | FLAME PILLAR (pan, blue flash), WOOSH, eye glint, SHHING parry, aura, TAP, WOOM | flame, clang, tap |
-| 36–39 | leap and slide, close-ups | thud, skid |
-| 40 | the stands: "That doesn't look like a demonstration" / "Should we get the student council?" | bubble 11 is a strip of the wall art, so `pop: false` |
-| 41–48 | counterattack: FWOOM ×3, SLING, SKIDD/RUSH match cut (43 → 44, `cut`), SHH, ING (red flash), TAP TAP, "This brat got faster!" | |
-| 49–50 | "Even rats become deadly when cornered," … "Professor." (pan) | |
-| 51–55 | DASH, the 3569 px CLASH (pan, white flash), STAGGER, "Arthur is pushing Professor Geist back." | |
-| 56–60 | "On a totally different level.", eye, OPEN (zoom-through 57 → 58), "It's time to end this.", CLANG | |
-
----
-
-## 6. Stage 3: the scroll site (`site/index.html`)
-
-* **GSAP 3.12.5 + ScrollTrigger** from cdnjs. One pinned (sticky) stage. One master timeline, in which **1 time unit = 1vh of scroll**, scrubbed with `scrub: 0.7`.
-* **Layer nesting per panel:** `.scene` (opacity) → `.zoom` (enter/exit zoom, origin = `focus`; centred with absolute position + negative margins) → `.shake` → `.pan` (the tall-panel pan: CSS `translate` from the `--pan` and `--travel` variables) → `.rig` (camera) → `.frame` (clip) → `img.bg`, `canvas.fx-mid`, `img.chars`. Bubbles sit in `.rig`, outside the clip, so they can overflow the panel border; `layout()` nudges them back on screen (56 px clear at the top for the Sound button).
-* **Loading:** images carry `data-src` and get their file when the reader is within 1 panel behind / 3 ahead (`preload`). Particle canvases get their size only while their panel is visible.
-* **Scene plan schema:**
-
-  | Setting | What it does |
-  |---|---|
-  | `length` | scroll length, in vh |
-  | `fit` | `"pan"` for tall panels |
-  | `camera`, `origin`, `bg`, `chars` | camera and layer moves; `over: [a, b]` limits a move to part of the scroll |
-  | `bubbles` | `{src, x, y, w, h}` in the panel's pixels, `at`, and `voice` |
-  | `shakes`, `flashes` | `{at, color, strength}` |
-  | `sfx` | `{at, sound}` |
-  | `fx` | `{ambient, tint, amount, bursts: [{type, at, from}]}` |
-  | `enter`, `exit` | `cut`, `fade` or `zoom`, plus `focus` |
-
-* **Particles:** ambient particles (`dust`, `embers`, `speed`) are clock-driven, drawn in each panel's `fx-mid` canvas, with a few big soft ones on the front canvas. Impact bursts (`splinters`, `sparks`, `ring`, `flare`) are **deterministic functions of scroll time** (seeded random), drawn on `fx-front` (z-index above the flash), so they rewind correctly.
-* **Sound** (`makeSound`): off until a **Play with sound** button is pressed.
-  * **Effects** are synthesised with Web Audio (`crack`, `whoosh`, `grip`, `flame`, `swish`, `clang`). Effects and voices fire only when the timeline passes their moment going forward, and not after jumps of more than 25 units.
-  * **Music:** `MUSIC = { src: "audio/fight.mp3", from: "panel_06", volume: 0.5 }`. It loops, with the volume following the scroll (fades in over 40 units, out over the last 60) and dipping to 40% while a voice plays.
-  * Missing audio files are skipped quietly.
-* **Reduced motion:** the panels show as a plain column, with no animation, particles or sound.
-* **Important bugs already fixed:**
-  * do **not** use `invalidateOnRefresh: true`. It wiped the hidden starting state of later `fromTo` tweens, so bubbles showed before their moment.
-  * GSAP writes `translate: none` on any element whose transform it animates, which silently killed the tall-panel pan (panels 6 and 9 never panned). The pan now lives on its own `.pan` wrapper that GSAP never transforms.
-  * A grid with `place-items: center` pins an item taller than the screen to the top, so tall panels started half-way down their pan. `.zoom` is now centred by hand.
-* **Placing bubbles for later panels:** position in the panel = bubble x,y minus panel x,y (from `layers.json`; see the tables in Section 11). Bubbles listed as "between panels" need to be attached to the nearest panel, possibly at negative coordinates.
-
----
-
-## 7. Audio
-
-### Music zones (site)
-`MUSIC` in `index.html` is a list: `{ src, from, to, volume }`. Each loaded track loops all the time; its gain follows the scroll,
-fading in over 40 units around the start of its stretch and out over 60 around the end, so neighbouring tracks crossfade.
-The first track is already up at the top of the page; the last fades out by the end card. The page skips silent MP3 padding at either end of a loop (`loopStart`/`loopEnd`).
-
-Since the reader restructure, chapters name **themes**, not files: `music: [{ theme, from, to }]` in chapter.js, resolved through
-`SERIES.themes` in series.js. A theme used twice in a chapter plays its next take (`take: n` overrides).
-
-| Panels (duel) | Story | Theme → file | Source take | Volume |
-|---|---|---|---|---|
-| 1–5 | build-up | `tension` → `tension_1.mp3` | run 2 `academy_dark` | 0.40 |
-| 6–22 | first exchange | `battle` → `battle_1.mp3` | run 1 `fight_orchestral` | 0.53 |
-| 23–39 | leaping slash, flame pillar | `battle_dark` → `battle_dark_1.mp3` | run 2 `fight_dark` (last 1 s of silence dropped) | 0.58 |
-| 40–48 | the stands, counterattack | `battle` (2nd use) → `battle_2.mp3` | run 2 `fight_orchestral` | 0.63 |
-| 49–60 | "Professor." to the clash | `climax` → `climax_1.mp3` | run 1 `fight_choir` | 0.75 |
-| (unused yet) | | `calm_1` (run 1 `academy_harp`, 0.5), `battle_dark_2` (run 1 `fight_hybrid`, 0.5), `climax_2` (run 2 `fight_choir`, 0.56) | | |
-
-The user ran the notebook twice (run 1 with the older 5-prompt version: academy_strings, academy_harp, fight_orchestral, fight_choir, fight_hybrid;
-run 2 with the 6-prompt version). Chosen by measurement, not by ear (the AI cannot listen): steady loudness, a steady beat, no dropouts.
-Rejected: `fight_dark_epic` (two long quiet breakdowns), `academy_strings` (abrupt section jumps; identical in both runs).
-The notebook's old `loudnorm` step varied the volume over time and broke every loop seam; it now applies one fixed gain, and `make_loop.py`
-rebuilds the loop anyway (skips the first 1.6 s, drops a dead tail, beat-aligned 1 s equal-power crossfade, fixed gain to about −16 LUFS).
-Volumes in `MUSIC` make up for tracks that came out quieter because of the peak limit.
-The user's taste in music for TBATE (their notes): Academy arc = warm acoustic / light fantasy / gentle piano; fights = heavy cinematic orchestral
-(Attack on Titan / Solo Leveling style), percussion and choir for desperate turns; Relictombs = dark synthwave / post-rock. **Instrumental only.**
-**Fans' reading playlist** (Spotify, https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe, 52 tracks; Spotify is blocked here and its audio
-cannot be downloaded, so the title card links to it with a "Reading playlist ↗" button instead). It is dark electronic / trap alt-pop with vocals:
-Egzod, Silent Child, UNDREAM, PatrickReza, Mickey Valen, NUVILICES (music-box piano), Adam Jensen, Confetti, Layto, Paper Idol, One Hope.
-The notebook's `academy_dark`, `fight_dark` and `fight_dark_epic` prompts imitate that sound as instrumentals; `academy_strings`, `fight_orchestral`
-and `fight_choir` follow the orchestral notes above. If the user sends tracks they own as files, trim and loop them into `academy.mp3` / `fight.mp3`.
-A long fight on one 30 s loop repeats a lot: a second fight zone (e.g. panels 40–60, starting at the stands) is an easy upgrade once there are two good fight takes.
-
-### Voices (OFF for now: the user wants more adjustments first)
-The site no longer loads or plays voices and `site/assets/audio/voice_*.mp3` were removed. The old playback code (with music ducking) is in commit `77414a1`.
-`tools/voices/make_voices.py` uses **kokoro-onnx**:
-* The regular `kokoro` package needs Python below 3.13, so it won't install on Colab now.
-* kokoro-onnx runs on a CPU. Its model files come from GitHub: `https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/` (`kokoro-v1.0.onnx` and `voices-v1.0.bin`).
-* Each voice is a blend of preset voices plus a pitch shift via ffmpeg (`asetrate`/`atempo`), a light room echo and `loudnorm`, saved as 96 kbps mono MP3.
-
-**Measured pitch of the presets** on the same sentence: `am_onyx` 86 Hz (deepest), `bm_lewis` 94, `am_puck` 107, `am_echo` 107, `am_michael` 118, `am_adam` 119, `bm_fable` 119, `am_liam` 123, `bm_daniel` 125, `am_fenrir` 130, `bm_george` 143, `am_eric` 154, `am_santa` 183.
-
-| Character | Description | Options (A is the default) | Measured |
-|---|---|---|---|
-| **Arthur Leywin** (main character, long red hair) | the user wants a **deep voice**; calm and controlled (a reincarnated king) | A: onyx 0.7 + lewis 0.3, −1 st · B: onyx, −1.5 st · C: onyx 0.6 + fable 0.4, −2 st | ~89–98 Hz |
-| **The armoured swordsman** (headband, scar, blue-flame sword) | younger, confident, a bit smug. **Name not confirmed**: web searches failed, so ask the user if needed. | A: michael 0.7 + liam 0.3 · B: puck 0.6 + liam 0.4, +0.5 st · C: bm_daniel | ~112–141 Hz |
-| **Onlooker** (a student watching) | impressed, the lightest voice | A: eric 0.6 + adam 0.4, speed 1.08 | ~143 Hz |
-
-Lines so far (only 4 bubbles have known text):
-
-| Line file | Speaker | Text | Panel |
-|---|---|---|---|
-| `very_well` | swordsman | "Very well." | 2 |
-| `go_easy` | swordsman | "I'll be sure to go easy on you." | 6 |
-| `going_easy_huh` | Arthur | "Going easy, huh?" | 13 |
-| `not_using_spells` | onlooker | "He's not using any spells... just strengthening his body and sword with mana." | 19 |
-
-The user was sent the candidate takes (`<line>__<who>_<A|B|C>.mp3`) and has **not picked yet**. To swap the default: reorder the options in `CAST`, re-run the script, and copy `out/voice_*.mp3` to `site/assets/audio/`.
-
-### Music (not done)
-The user wants **both**:
-1. **AI-generated:** `tools/music/Make_Music.ipynb` on Colab (T4). It uses `transformers` `MusicgenForConditionalGeneration` with `facebook/musicgen-large`, `dtype=float16`, 1500 tokens (about 30 s), `guidance_scale` 3. It makes six tracks (`academy_strings`, `academy_dark`, `fight_orchestral`, `fight_choir`, `fight_dark`, `fight_dark_epic`), each blended 1.5 s end-into-start so it loops, normalised with loudnorm and saved as MP3; the zip is `duel_music.zip`. **Not yet run by the user, and untested here** (Hugging Face is blocked in the AI's environment).
-2. **Free to use:** the user downloads a track, e.g. from Pixabay Music ("epic battle", "anime fight") or the YouTube Audio Library (Cinematic, dramatic). The AI then trims or loops it into `site/assets/audio/fight.mp3`.
-
-There is no official per-chapter soundtrack for this webtoon.
-
----
-
-## 8. Characters and story notes
-* **Arthur Leywin:** the TBATE protagonist, a reincarnated king (Grey). In these panels: long red/auburn hair, Xyrus-style black uniform, a sword glowing blue. Appears in panels 8, 10 and 13.
-* **The swordsman:** spiky brown hair, white headband, armoured shoulder, a cloak with an emblem, a blue-flame sword ("BURN"). Says "Very well." and "I'll be sure to go easy on you."
-* An onlooker comments on Arthur strengthening his body and sword with mana (panel 19).
-
----
-
-## 9. Next steps
-1. **Automation, steps 2–5** (Section 12).
-2. **Panels 61–65:** not sent yet. Convert (backgrounds q80, characters q85, `method=6`) and extend `SCENES`; `bubble_18` ("You think this is enough?!", panel 65 at 103,240) is already in `assets/`. Then end on a final beat and update the footer card.
-3. **Voices (later):** the user wants adjustments before they come back. All bubble texts are now known (Section 11), so more lines can be made.
-4. **Nice-to-haves:**
-   * recorded free sound effects (e.g. CC0 from freesound) in place of the synthesised ones;
-   * a letter-count rule against eye false bubbles;
-   * Segment Anything for any missed cutouts;
-   * outpainting or depth maps (original handoff, Stage 1 steps 3–4).
-5. **Publishing:** this is a personal project, so the preview artifact is enough. A local run is also possible: double-click `site/index.html`, or run `python -m http.server` in `site/`.
-
----
-
-## 10. Instructions for the next AI session
-
-**Working with the user**
-* Plain, non-technical language. One step at a time. Give exact click paths for Colab.
-* Send notebooks and files as attachments. The user downloads them and uploads them to Colab.
-* The user often reopens an **old notebook copy from Google Drive**: ask them to check the version, e.g. search for a known string or look at the Step 1 install line.
-
-**When the user reports a Colab error**
-* Reproduce it locally first: install the same package versions, simulate the failure, and test the fix before sending a new notebook.
-* The user's Colab currently runs **Python 3.13, CUDA 13** (PyPI torch is `+cu132`), `onnxruntime-gpu` 1.31.1 and rembg 2.0.86.
-
-**Keep files in sync**
-* After editing `split_layers.py` or `make_chapter.py`, run `python tools/build_notebooks.py`: it rebuilds `Make_Chapter.ipynb`
-  and refreshes the `%%writefile split_layers.py` cell of `Split_Manga_Layers.ipynb`.
-* The voice script reads model files from its own folder.
-
-**The AI's cloud environment** (for an AI in Claude Code on the web)
-* **No GPU.**
-* **Blocked:** Hugging Face and cdnjs.
-* **Reachable:** GitHub releases, PyPI and npm.
-* **Testing the site:** serve `site/` with `python3 -m http.server` and drive it with the preinstalled Playwright. Route the cdnjs GSAP URLs to a local copy from `npm pack gsap@3.12.5` and abort the Google Fonts requests.
-* Running code cloned from third-party GitHub repos was blocked by the safety classifier, so prefer published packages.
-* rembg's models download from GitHub releases into `~/.u2net` / `~/.rembg`. `birefnet-general` takes about 40 s per panel on the CPU here.
-
-**Where the user's work lives**
-* Commit and push to `claude/new-session-em88ar` after each change (or the branch the session names).
-* Republish the preview artifact to the same URL by publishing the same scratch file path, or by passing `url`.
-
----
-
-## 11. Chapter layout from `layers.json` (slices 8–53)
-
-Panels: `number: x,y widthxheight` on the joined 940×84793 strip.
-
-| | | | | |
-|---|---|---|---|---|
-| 01: 0,0 940x375 | 02: 236,1114 683x1034 | 03: 86,2689 756x480 | 04: 198,3695 700x994 | 05: 90,5482 477x692 |
-| 06: 0,6321 940x1816 | 07: 0,8422 940x384 | 08: 87,9126 838x747 | 09: 0,10453 940x1648 | 10: 0,12384 940x955 |
-| 11: 0,14095 940x686 | 12: 10,15178 920x541 | 13: 41,16048 860x1098 | 14: 45,17647 790x991 | 15: 31,18810 889x836 |
-| 16: 0,19843 940x1483 | 17: 0,21560 940x705 | 18: 0,22341 940x2756 | 19: 0,25349 940x730 | 20: 192,26168 748x364 |
-| 21: 0,26715 890x358 | 22: 45,27178 895x551 | 23: 53,27981 830x1302 | 24: 59,29707 672x1025 | 25: 108,31206 800x643 |
-| 26: 20,32080 737x365 | 27: 121,32603 788x671 | 28: 40,33616 778x540 | 29: 0,34779 940x1709 | 30: 0,36713 940x819 |
-| 31: 0,37644 851x386 | 32: 0,38108 940x828 | 33: 0,39285 940x807 | 34: 46,40514 823x407 | 35: 0,41121 940x864 |
-| 36: 0,42122 940x1813 | 37: 0,44509 940x1034 | 38: 96,45888 844x417 | 39: 0,46562 875x445 | 40: 27,47627 882x968 |
-| 41: 0,49093 940x2016 | 42: 23,51490 899x710 | 43: 0,52608 940x907 | 44: 0,53884 940x912 | 45: 0,55288 940x776 |
-| 46: 0,56197 940x682 | 47: 0,57314 940x1965 | 48: 0,59663 940x703 | 49: 0,61002 940x2898 | 50: 57,64306 832x613 |
-| 51: 0,65170 716x193 | 52: 0,65406 940x3569 | 53: 0,69313 940x988 | 54: 0,70784 940x1029 | 55: 50,72237 847x462 |
-| 56: 0,72982 940x1871 | 57: 119,75446 782x522 | 58: 0,76212 871x732 | 59: 52,77428 811x531 | 60: 0,78287 940x529 |
-| 61: 0,79186 940x541 | 62: 137,79991 761x406 | 63: 0,80670 940x1769 | 64: 121,82826 471x794 | 65: 0,83740 940x1044 |
-
-Bubbles ("in panel" = position relative to that panel's top-left corner, the numbers the site's `bubbles` entries use):
-
-| Bubble | Panel | On strip | Size | In panel | Notes |
-|---|---|---|---|---|---|
-| bubble_01 | panel_02 | 388,1040 | 362x333 | 152,−74 | "VERY WELL." (in the site) |
-| bubble_02 | panel_06 | 535,6820 | 389x323 | 535,499 | "I'LL BE SURE TO GO EASY ON YOU." (in the site) |
-| bubble_03 | panel_13 | 408,16070 | 274x189 | 367,22 | "GOING EASY, HUH?" (Arthur) |
-| bubble_04 | panel_19 | 102,25179 | 485x359 | 102,−170 | "HE'S NOT USING ANY SPELLS…" (onlooker) |
-| bubble_05 | panel_19 | 587,25612 | 83x56 | 587,263 | **an eye: ignore** |
-| bubble_06 | panel_19 | 767,25669 | 95x47 | 767,320 | **an eye: ignore** |
-| bubble_07 | (attached to panel_21) | 503,26520 | 393x256 | 503,−195 | "WHO DOES HE TAKE ME FOR?!" (Geist) |
-| bubble_08 | panel_22 | 86,27498 | 570x380 | 41,320 | "I'M SURE THE DISCIPLINARY COMMITTEE ISN'T MADE ONLY OF RATS WHO KEEP DODGING AND RUNNING AWAY!" (Geist) |
-| bubble_09 | (panel_24) | 338,29310 | 567x553 | 279,−397 | "IS THERE REALLY A NEED FOR ME TO ATTACK WHEN OUR ESTEEMED PROFESSOR CAN'T EVEN LAND A SINGLE BLOW ON A FIRST-YEAR STUDENT?" (Arthur) |
-| bubble_10 | (panel_25) | 158,31058 | 348x241 | 50,−148 | "F---!" (Geist) |
-| bubble_11 | panel_40 | 21,47477 | 894x366 | −6,−150 | "THAT DOESN'T LOOK LIKE A DEMONSTRATION." / "SHOULD WE GET THE STUDENT COUNCIL?" (students; a strip of the wall art) |
-| bubble_12 | (panel_48) | 68,60290 | 423x260 | 68,627 | "THIS BRAT GOT FASTER!" (Geist) |
-| bubble_13 | (panel_49) | 243,60737 | 440x378 | 243,−265 | "EVEN RATS BECOME DEADLY WHEN CORNERED," (Arthur) |
-| bubble_14 | panel_49 | 458,62850 | 454x415 | 458,1848 | "PROFESSOR." (Arthur) |
-| bubble_15 | (panel_54) | 39,70499 | 388x414 | 39,−285 | "ARTHUR IS PUSHING PROFESSOR GEIST BACK." (spectator) |
-| bubble_16 | panel_56 | 82,72857 | 405x298 | 82,−125 | "ON A TOTALLY DIFFERENT LEVEL." (spectator) |
-| bubble_17 | (panel_59) | 379,77217 | 423x260 | 327,−211 | "IT'S TIME TO END THIS." (Arthur) |
-| bubble_18 | panel_65 | 103,83980 | 404x341 | 103,240 | "YOU THINK THIS IS ENOUGH?!" (Geist) |
-
-Panel 54's "HE'S…" bubble was not detected, so it stays in that panel's character layer.
-
----
-
-## 12. Automating the whole series (agreed with the user, second session)
-
-**The user's decisions:** every chapter is **approved by the user** before it joins the reader; **free and budget-friendly** (no paid API:
-the AI in a Claude Code session is the "director", following a written playbook; GPU work stays on Colab); the **whole series** with a
-chapter menu; the user writes a **cast list**; **music by theme** (a few standard themes reused across chapters); **voices stay off**.
-Chapter images come from files the user already has (CBZ from their downloader); the AI does not build a scraper for manhwa sites.
-
-**Downloader settings given to the user:** a dedicated folder, Skip existing on, **CBZ**, pack as **Chapters**, convert AVIF to JPEG on,
-WebP off, compress off, skip pages empty (non-story pages are flagged per chapter), JPEG quality 90+.
-
-**Per chapter, once built:** user runs one Colab notebook on a CBZ (split + WebP conversion, so the upload is ~6 MB and complete) →
-AI session directs it (reads panels/bubbles with the cast list, writes `chapter.js`, tags music themes) and sends a preview → user
-approves or leaves notes → chapter added to `series.js`.
-
-**Build order:**
-1. ✅ Scene plan out of `index.html` into `chapters/<id>/chapter.js`; `series.js`; chapter menu; music themes. Tested with Playwright:
-   same panels and music as before; menu switching, a missing chapter and an unknown `#hash` all behave.
-2. ✅ (built, waiting for the user's first Colab run) `tools/make-chapter/Make_Chapter.ipynb` + `make_chapter.py`; see
-   `tools/make-chapter/README.md`. Chapter ids are 3-digit (`094`); chapters come from Drive `Storyteller/cbz`, zips go to
-   `Storyteller/chapters`. Chapter 94's CBZ: 70 pages, 000 = series title page, 069 = creators' promo page (both dropped
-   automatically); 92 panels (90, 91 tiny), 26 bubbles. New panels 10–69 = the old duel panels 1–60 (same art, offset by 9);
-   panels 1–9 are the new opening, 70–92 the new finale (TEMPEST, glass cracks, "S-stop!", CRASH, THUD, "Thank you for your guidance.").
-3. The director playbook (a skill in the repo) + cast list. Done so far: `tools/director/draft_chapter.py` (first-draft
-   `chapter.js` from `chapter.json`; `--carry-over` keeps an old plan: on chapter 94 all 60 duel scenes land on panels 10–69,
-   58 identical and 2 marked resized, leaving 30 new panels), and new engine effects for the finale: `shatter` burst (growing glass
-   cracks + shards, scroll-scrubbed), flashes with `hold` / `rise` / `fall` (white-out), sounds `shatter`, `crash`, `gust`.
-   Sword sounds: the user supplied two recordings (Sekiro deflect and parry) to replace CLANK and the synthesised parry/block/tink
-   (removed). They were far too loud (-4 to -6 LUFS, peaks +3 dBFS) and started late: trimmed (0.21 / 0.47 s of silence), high shelf
-   -5 / -3 dB above ~4.5 kHz, levelled about 4 dB under the other sword effects; now `site/sfx/deflect.mp3` (0.74 s, bright) and
-   `site/sfx/parry.mp3` (1.58 s, heavier), listed in `SERIES.sounds`, played with ±2% pitch variation, falling back to `clang`.
-   Duel: deflect on panels 11, 32, 42, 46; parry on 9, 17, 52, 60. The user chose the lower-pitched versions (asetrate x0.89,
-   about 2 semitones down and 12% slower): deflect 0.84 s, parry 1.77 s. Effects are built by top-level `makeEffects(ctx, out)`,
-   so they also render offline (OfflineAudioContext) for listening tests. Ring partials start up to 1.2 ms apart (aligned starts
-   peaked at 1.4x); effects bus 0.65 → limiter (ratio 20, attack 1 ms) → tanh soft clip. Measured: parry/tink never clip, the old
-   clang did (Chrome's compressor is not a brick wall).
-   Music: `tools/music/Make_Music.ipynb` (renamed from Make_Duel_Music) makes calm_2, tension_2, sad_1-2, eerie_1-2, triumph_1-2,
-   warm_1-2 for the library; waiting for the user's run.
-4. Music theme library: add `sad`, `eerie`, `triumph` (and second takes) via the music notebook + `make_loop.py`.
-5. A start file to read the whole series on the user's PC (local server; music needs it, file:// blocks fetch).
-
-**Hosting limit:** an artifact version holds at most 511 files (and 255 per publish); a chapter is ~140 files, so the private preview
-fits about 3 chapters. Plan: per-chapter previews for approval; the full series reader runs locally from `D:\Work\StoryTelling website`.
+Second session's commits: `687ea87` … `e14da16` (see git log: panels 11–60, music, series reader, cast list, Make_Chapter
+notebook, music notebook, draft tool, shatter/crash/gust, the Sekiro sounds, subfolders, timers/shards, Kaggle + PC kit).

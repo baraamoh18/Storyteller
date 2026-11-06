@@ -7,7 +7,25 @@ The page shows a chapter menu on its title card; each chapter plays as one long 
 
 Open `index.html` through a local web server: run `python -m http.server` in this folder and open <http://localhost:8000>.
 (Double-clicking the file shows the panels, but browsers block the music when a page is opened as a file.)
-It needs an internet connection for GSAP and the fonts. `index.html#duel` opens the chapter with the id `duel`.
+It needs an internet connection for GSAP and the fonts. `index.html#094` opens the chapter with the id `094`.
+
+## On the user's PC (and phone)
+
+`tools/reader/` makes the PC reader: `python tools/reader/build_reader.py` writes `dist/Storyteller-Reader.zip` (the reader,
+the chapters listed in `series.js`, `Read Storyteller.bat`, `reader.py`). `reader.py` is a small web server (standard library
+only): it adds reader packs dropped into `new chapters/`, serves the reader to the PC and to phones on the same Wi-Fi, and
+answers `__chapters.js` (the chapter menu, read from the chapters folder, so packs never need a new `series.js`) and
+`__phone.json` (the address shown with a QR code on the PC's title card). New chapters go out as packs:
+`build_reader.py --pack 094` writes `dist/reader-pack_094.zip` (`--with-reader` adds the newest `index.html` and `series.js`).
+
+**The website for friends** (Cloudflare Pages, uploaded by the user by drag and drop, no sign-in by the user's choice):
+`build_reader.py --site` writes `dist/Storyteller-Site.zip`: the reader files at the top, the chapters in `series.js`, and
+`_headers` + `robots.txt` that keep it out of search engines. Each new chapter: add it to `series.js`, rebuild, and the
+user uploads the zip as a new deployment of the same project.
+
+**The public demo** (for LinkedIn): `chapters/094-demo` is a 19-panel cut of 094 (`tools/director/cut_chapter.py`), built with
+`--public <its address> --cover <1200x627 JPEG>`, which adds the link-preview tags and leaves search engines allowed.
+`SERIES.credit` (series.js) puts the original work's creators and this project's maker on the title and end cards.
 
 ## Layout
 
@@ -35,10 +53,10 @@ Each panel has:
 | `fit` | `"pan"` fills the width and pans down a tall panel; otherwise the whole panel shows |
 | `camera` | moves the whole panel: `scale`, and `x` / `y` in % of the panel |
 | `bg`, `chars` | move the background and characters separately for depth; `over: [start, end]` squeezes the move into part of the scroll |
-| `bubbles` | speech bubble file, its position and size in the panel's pixels, and when it pops in (0–1); `pop: false` fades it in where it sits (for lettering drawn on the art). Bubbles are nudged back on screen if they hang off it |
+| `bubbles` | speech bubble file, its position and size in the panel's pixels, and when it pops in (0–1) and fades out (`out`, default 0.8; 0.92 or more keeps it until the panel leaves); `pop: false` fades it in where it sits (for lettering drawn on the art). Bubbles are nudged back on screen if they hang off it |
 | `shakes`, `flashes` | moments (0–1) of a camera shake, or of a flash with its `color` and `strength`; a flash can `hold` at full strength for a while (a white-out, as a fraction of the panel's scroll), with `rise` / `fall` setting its fades |
 | `sfx` | sound effects at moments (0–1): `crack`, `whoosh`, `grip`, `flame`, `swish`, `clang`, `skid`, `tap`, `thud`, `glint`, `shatter` (breaking glass), `crash` (a huge impact), `gust` (a rush of wind), plus two recorded sword sounds from `sfx/` (listed under `sounds` in `series.js`): `deflect` (quick and bright: a blade turned aside) and `parry` (heavier, with a longer ring: blades meeting with weight). `clang` is the older synthesised blade hit, and the fallback if a recording is missing |
-| `fx` | particles: `ambient` `"dust"`, `"embers"` or `"speed"` in a `tint` (`"paper"`, `"mana"`, `"ember"`) and `amount`, plus impact `bursts` (`"splinters"`, `"sparks"`, `"ring"`, `"flare"`, `"shatter"`: glass cracks growing out from the point, with flying shards) at a moment, coming `from` a point (% of the panel) |
+| `fx` | particles: `ambient` `"dust"`, `"embers"` or `"speed"` in a `tint` (`"paper"`, `"mana"` blue, `"ember"` orange, `"wind"` green-white) and `amount`, plus impact `bursts` (`"splinters"`, `"sparks"`, `"ring"`, `"flare"`, `"shatter"`: glass cracks growing out from the point, with flying shards) at a moment, coming `from` a point (% of the panel); `sparks` and `flare` take a `tint` too (blue by default) |
 | `enter`, `exit` | `"cut"`, `"fade"` or `"zoom"`; a zoom exit dives into `focus` (% of the panel) |
 
 ## Music
@@ -58,6 +76,14 @@ in `music/` with a `volume` that evens out loudness. When a chapter uses a theme
 
 Planned: `sad`, `eerie`, `triumph`. Make takes with `tools/music/Make_Music.ipynb`, then loop them with `tools/music/make_loop.py`.
 
+## Auto-scroll
+
+**Auto-scroll** (title card and top bar) scrolls by itself at 60 units a second times the speed slider (0.5x-2x, kept in
+`localStorage` on that device). It eases almost to a stop after each bubble pops in, for `0.3 + pauses * clamp(0.6 + w*h/75000, 1, 4)`
+seconds (`SERIES.autoScroll.pauses`, 0.65; bigger bubbles hold more words; divided by the square root of the speed), and lingers after big moments: the sounds
+`crash`, `shatter`, `parry`, `deflect`, `thud`, strong or held flashes, and `shatter` bursts. A touch, wheel or scrolling key
+pauses it; it stops at the end card.
+
 ## Sound
 
 Off until the reader presses **Play with sound** (browsers block sound before a tap).
@@ -68,6 +94,6 @@ People who prefer reduced motion get the panels as a plain column instead.
 
 ## Assets
 
-Backgrounds are WebP at quality 80, characters at 85, bubbles at 90 (`method=6`), about 6 MB per chapter.
+Backgrounds are WebP at quality 80, characters at 85, bubbles at 90 (`method=6`), about 10 MB per chapter.
+Chapter images are not in git (`.gitignore`): they come from the chapter zips and go to the user in reader packs.
 Each panel's images only load when the reader gets close, and its particle canvas only exists while it is on screen.
-`chapters/duel/bubble_18.webp` (panel 65) is ready for when the last panels of that chapter come in.

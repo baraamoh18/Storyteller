@@ -14,6 +14,11 @@ Chapters already done are skipped, so a batch can be restarted after Colab disco
 
 Usage:
     python make_chapter.py --cbz-dir CBZ_FOLDER --out OUT_FOLDER --chapters 1-5,94 [--skip '{"94": [0, 69]}'] [--redo]
+                           [--shard 1/2] [--done-dir FOLDER] [--max-hours 11]
+
+--shard K/N makes this run take every Nth chapter of the batch starting at the Kth, so N graphics cards can share it
+(the split is the same whatever is already done); --done-dir skips chapters whose zip is already in another folder
+(an earlier run's output); --max-hours stops starting new chapters after that long.
 """
 
 import argparse
@@ -51,6 +56,19 @@ def chapter_number(path):
         return None
     whole, _, part = m.group(1).partition(".")
     return str(int(whole)) + (f".{part}" if part else "")
+
+
+def made_before_tall_fix(zip_path):
+    """True for a chapter zip from before tall panels were split up: one of its panels is far taller than the strip is
+    wide (mostly empty space, with the cutouts squashed out of shape), so the chapter is worth making again."""
+    try:
+        with zipfile.ZipFile(zip_path) as z:
+            name = next(n for n in z.namelist() if n.endswith("chapter.json"))
+            info = json.loads(z.read(name))
+    except Exception:
+        return False  # unreadable: leave it alone, the user will see it
+    limit = 4.5 * info["strip"]["width"]  # split_layers.LONGEST strip widths
+    return any(p["height"] > limit + 1 for p in info["panels"])
 
 
 def chapter_id(number):
@@ -96,7 +114,10 @@ REFS = {why: np.unpackbits(np.frombuffer(bytes.fromhex(h), dtype=np.uint8)).asty
 def non_story_reason(image):
     h = dhash(image)
     for why, ref in REFS.items():
-        if int((h != ref).sum()) <= MATCH_BITS:
+        distance = int((h != ref).sum())
+        # a plain page (all black, a fade, a small picture on black) has almost no bits set and so sits near every
+        # fingerprint: it only counts as a match when it is closer to the fingerprint than to an empty page
+        if distance <= MATCH_BITS and distance < int(h.sum()):
             return why
     return None
 
@@ -215,8 +236,12 @@ def make_chapter(cbz, number, out_root, work_root, models, skip_by_hand):
     rgb = np.vstack(strip)
     del strip
     print(f"  joined strip: {rgb.shape[1]} x {rgb.shape[0]}")
+    before = dict(getattr(models, "timings", {}))
+    split_started = time.time()
     split_layers.split_image(cid, [files[k].name for k in kept], rgb, work / "layers", models)
+    split_seconds = time.time() - split_started
     del rgb
+    steps = {k: round(v - before.get(k, 0), 1) for k, v in getattr(models, "timings", {}).items() if v - before.get(k, 0) > 0}
     layers = work / "layers" / cid
     info = json.loads((layers / "layers.json").read_text())
 
@@ -234,6 +259,8 @@ def make_chapter(cbz, number, out_root, work_root, models, skip_by_hand):
         entry = {k: p[k] for k in ("id", "x", "y", "width", "height")}
         # crumbs the panel finder picks up (a flash fragment, the tail of a bubble): the director skips them
         entry["tiny"] = min(p["width"], p["height"]) < 120 or p["width"] * p["height"] < 40000
+        if p.get("continues"):  # cut from the same tall picture as the panel before it
+            entry["continues"] = p["continues"]
         panels.append(entry)
 
     bubbles, bubble_images = [], []
@@ -267,6 +294,7 @@ def make_chapter(cbz, number, out_root, work_root, models, skip_by_hand):
         "strip": {"width": info["width"], "height": info["height"]},
         "panels": panels, "bubbles": bubbles,
         "webp_quality": WEBP,
+        "seconds": {"split": round(split_seconds, 1), **steps},
     }
     (out / "chapter.json").write_text(json.dumps(chapter, indent=2))
 
@@ -286,6 +314,10 @@ def make_chapter(cbz, number, out_root, work_root, models, skip_by_hand):
     minutes = (time.time() - started) / 60
     tiny = sum(p["tiny"] for p in panels)
     print(f"  done: {len(panels)} panels ({tiny} tiny), {len(bubbles)} bubbles -> {zip_path.name} ({size:.1f} MB) in {minutes:.1f} min")
+    if steps:  # where the time went, per panel
+        other = split_seconds - sum(steps.values())
+        print("  time per panel: " + ", ".join(f"{k} {v / len(panels):.1f} s" for k, v in steps.items())
+              + f", saving and the rest {other / len(panels):.1f} s")
     return zip_path
 
 
@@ -298,7 +330,14 @@ def main():
     parser.add_argument("--work", default="work", help="a scratch folder (default: work)")
     parser.add_argument("--redo", action="store_true", help="make chapters again even if their zip already exists")
     parser.add_argument("--models", help="cutout models, as in split_layers.py (default: its choice)")
+    parser.add_argument("--shard", default="1/1", help="K/N: take chapters K, K+N, K+2N, ... of the batch (default 1/1: all)")
+    parser.add_argument("--done-dir", action="append", default=[], help="skip chapters whose zip is already here (repeatable)")
+    parser.add_argument("--max-hours", type=float, help="do not start another chapter after this many hours")
     args = parser.parse_args()
+    started = time.time()
+    share, shares = (int(x) for x in args.shard.split("/"))
+    if not 1 <= share <= shares:
+        raise SystemExit(f"--shard {args.shard}: K must be between 1 and N")
 
     wanted = parse_chapters(args.chapters)
     skip = {str(k): v for k, v in json.loads(args.skip).items()}
@@ -314,22 +353,46 @@ def main():
                 found.setdefault(n, f)
     if not found:
         raise SystemExit(f"No CBZ files for chapters {args.chapters} in {cbz_dir}.")
-    todo = {n: f for n, f in found.items() if args.redo or not (out_root / f"chapter_{chapter_id(n)}.zip").exists()}
-    for n in sorted(set(found) - set(todo), key=float):
-        print(f"Chapter {n}: already done (chapter_{chapter_id(n)}.zip); use --redo to make it again")
+    # this run's share of the batch, fixed by position in the whole batch, so it is the same on every run
+    found = {c: found[c] for i, c in enumerate(sorted(found, key=float)) if i % shares == share - 1}
+    if shares > 1:
+        print(f"Share {share} of {shares}: chapters {', '.join(sorted(found, key=float))}")
+    done_dirs = [out_root] + [Path(d) for d in args.done_dir]
+
+    def is_done(c):
+        zips = [z for d in done_dirs if Path(d).is_dir() for z in Path(d).rglob(f"chapter_{chapter_id(c)}.zip")]
+        if not zips:
+            return False
+        if made_before_tall_fix(zips[0]):
+            print(f"Chapter {c}: made again: {zips[0].name} has panels many screens tall (made before the tall-panel fix)")
+            return False
+        return True
+    todo = {c: f for c, f in found.items() if args.redo or not is_done(c)}
+    for c in sorted(set(found) - set(todo), key=float):
+        print(f"Chapter {c}: already done (chapter_{chapter_id(c)}.zip); use --redo to make it again")
     if not todo:
         return
 
     import split_layers
     models = split_layers.Models(args.models.split(",") if args.models else None)
-    failed = []
-    for n in sorted(todo, key=float):
-        print(f"Chapter {n}: {todo[n].name}")
+    failed, left, longest = [], [], 0.0
+    for c in sorted(todo, key=float):
+        if args.max_hours is not None:
+            # stop in time: not after the limit, and not if the slowest chapter so far would not fit
+            remaining = args.max_hours * 3600 - (time.time() - started)
+            if remaining < 1.2 * longest or remaining <= 0:
+                left.append(c)
+                continue
+        print(f"Chapter {c}: {todo[c].name}")
+        t = time.time()
         try:
-            make_chapter(todo[n], n, out_root, work_root, models, skip.get(n, []))
+            make_chapter(todo[c], c, out_root, work_root, models, skip.get(c, []))
         except Exception as e:  # keep going with the rest of the batch
             print(f"  FAILED: {e}")
-            failed.append(n)
+            failed.append(c)
+        longest = max(longest, time.time() - t)
+    if left:
+        print(f"Out of time: chapters {', '.join(left)} are left for the next run.")
     if failed:
         print(f"Failed: chapters {', '.join(failed)}. The others are done.")
         sys.exit(1)

@@ -17,4 +17,16 @@ in order (longest common run), then leftover panels in a gap are paired by posit
 Bubbles keep their old timing when one sits within 12 px of the old position; others are marked as new.
 Old music stretches move to the new panel names.
 
-Tested on chapter 94 against the 60-panel duel: all 60 carried over onto panels 10–69 (58 identical, 2 resized), 30 new panels left to direct.
+Tested on chapter 94 against the old 60-panel duel cut (removed in commit `cab2a0a` once 094 was approved; it is still in the git history): all 60 carried over onto panels 10–69 (58 identical, 2 resized), 30 new panels left to direct.
+
+## cut_chapter.py
+
+Cuts a short demo from a directed chapter: the chosen scenes exactly as directed, in a chapter folder of their own, with their
+images and bubbles copied next to it (images stay out of git). Used for the public LinkedIn demo:
+
+```
+python tools/director/cut_chapter.py site/chapters/094 --id 094-demo --title "The Duel" \
+    --panels 01,02,04,06,07,70-72,74-76,78,79,81,84,86,87,89,92 --music "tension:01,climax:70,calm:92"
+```
+
+`--music` names the theme that starts at a panel; each plays until the next one starts.

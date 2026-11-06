@@ -39,7 +39,7 @@ What each line is for:
 ## Sylvie Leywin
 
 - **Also called**: Sylv; Fox-like bond; Lady Sylvie
-- **Look**: three forms — (1) small midnight-black dragon with iridescent scales, tiny wings, two small horns, and golden eyes (often perched on Arthur's head); (2) white/black mystical kitsune-like fox form at Xyrus Academy to hide her dragon identity; (3) later human form: young girl with long pale-blonde hair, golden eyes, and small horns
+- **Look**: three forms — (1) small midnight-black dragon with iridescent scales, tiny wings, two small horns, and golden eyes (often perched on Arthur's head); (2) white/black mystical kitsune-like fox form at Xyrus Academy to hide her dragon identity (white fur with black-tipped ears, paws and tail, golden eyes); (3) later human form: young girl with long pale-blonde hair, golden eyes, and small horns
 - **Magic / colour**: Pure Mana & Aether (Aevum / Vivum) — soft golden-white healing light and glowing violet-purple aetheric particles
 - **Role**: Arthur's bonded dragon and adopted daughter; his closest companion who speaks telepathically with him
 - **Personality / how they talk**: curious, playful, protective, food-motivated; barks "Kyu!" aloud to others while speaking in a bright, childlike telepathic voice to Arthur ("Papa!")
@@ -195,7 +195,7 @@ What each line is for:
 ## Kathyln Glayder
 
 - **Also called**: Princess Kathyln
-- **Look**: long dark-blue/black hair, deep blue eyes, doll-like stoic face; wears the black Disciplinary Committee uniform with a gold royal cord and carries a staff/wand
+- **Look**: long dark-blue/black hair (pure black in the webcomic art, with dark eyes), deep blue eyes, doll-like stoic face; wears the black Disciplinary Committee uniform with a gold royal cord and carries a staff/wand
 - **Magic / colour**: Ice Deviant Conjurer — frost-white and icy cyan-blue crystals, mist, and spears
 - **Role**: Princess of Sapin, Disciplinary Committee officer, and classmate who defends Arthur after the Professor Geist duel
 - **Personality / how they talk**: kuudere — quiet, composed, monotone, formal; rarely shows facial expressions even when impressed by Arthur
@@ -213,7 +213,7 @@ What each line is for:
 ## Feyrith Ivsaar III
 
 - **Also called**: Feyfey (by Arthur)
-- **Look**: slender elf with long silver-blonde hair, pointed ears, sharp eyes; wears the black Disciplinary Committee uniform
+- **Look**: slender elf with long silver-blonde hair (warm golden-blonde in the webcomic, with **two small front braids** and brown/amber eyes; often arms crossed), pointed ears, sharp eyes; wears the black Disciplinary Committee uniform
 - **Magic / colour**: Water & Wind Conjurer — swirling blue water streams and green wind blades
 - **Role**: highborn elf student and Disciplinary Committee officer who views himself as Arthur's rival
 - **Personality / how they talk**: pompous, theatrical, tsundere rival ("Greetings, plebeians!"); boasts loudly but is a loyal friend underneath

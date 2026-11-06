@@ -195,12 +195,25 @@ body {
 .sound .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .sound[aria-pressed="true"] { border-color: var(--red); }
 .sound[aria-pressed="true"] .dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
-.hud .sound {
+.hud-controls {
   position: absolute;
   top: calc(14px + env(safe-area-inset-top, 0px));
   right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  gap: 8px;
   pointer-events: auto;
 }
+/* auto-scroll: a play / pause icon, and the speed slider on the title card */
+.auto-toggle .icon { width: 10px; height: 10px; fill: currentColor; flex: none; }
+.auto-toggle .pause, .auto-toggle[aria-pressed="true"] .play { display: none; }
+.auto-toggle[aria-pressed="true"] .pause { display: inline; }
+.auto-toggle[aria-pressed="true"] { border-color: var(--red); }
+.speed { display: grid; grid-template-columns: auto minmax(0, 14rem) 3.2em; align-items: center; gap: 12px; }
+.speed .eyebrow { margin: 0; }
+.speed-value { font-family: var(--mono); font-size: 13px; color: var(--paper); font-variant-numeric: tabular-nums; }
+.speed-range { width: 100%; accent-color: var(--red); margin: 0; }
+.speed-range:focus-visible { outline: 2px solid var(--red); outline-offset: 4px; }
+@media (max-width: 420px) { .speed { grid-template-columns: minmax(0, 1fr) 3.2em; } .speed .eyebrow { grid-column: 1 / -1; } }
 .card .sound { padding: 12px 18px; font-size: 13px; }
 /* the title card's two buttons: sound, and the fans' reading playlist on Spotify (opens in a new tab) */
 .actions { display: flex; flex-wrap: wrap; gap: 12px; }
@@ -228,12 +241,24 @@ body {
 .chapter-list a[aria-current="page"] .num { color: var(--red); }
 .chapter-list a[aria-current="page"] .name { text-shadow: 2px 2px 0 var(--red); }
 .notice { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+/* the original work's creators, and who made this reader (SERIES.credit) */
+.credit { color: var(--muted); font-size: 15px; line-height: 1.45; max-width: 30rem; padding-left: 12px; border-left: 2px solid var(--red); }
+.credit[hidden] { display: none; }
+.credit strong { color: var(--paper); font-weight: 600; }
+
+/* ---------- "read on your phone" (only on the PC reader, opened as localhost) ---------- */
+.phone { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 14px; border: 1px solid rgba(241, 236, 228, 0.25); background: var(--ink-2); }
+.phone[hidden] { display: none; }
+.phone-qr { width: 132px; height: 132px; background: var(--paper); image-rendering: pixelated; flex: none; }
+.phone > div { display: grid; gap: 6px; min-width: 0; flex: 1 1 12rem; }
+.phone-url { font-family: var(--mono); font-size: 15px; color: var(--paper); overflow-wrap: anywhere; }
+.phone-note { color: var(--muted); font-size: 15px; }
 
 /* ---------- reduced motion: the panels as a plain webtoon column ---------- */
 .static .viewport { position: static; height: auto; overflow: visible; display: grid; gap: 48px; padding-block: 48px; justify-items: center; }
 .static .scene { position: relative; inset: auto; visibility: visible; opacity: 1; }
 .static .zoom { position: relative; left: auto; top: auto; margin: 0; width: min(92vw, 640px); height: auto; aspect-ratio: var(--ratio); }
-.static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static [data-sound] { display: none; }
+.static [data-auto], .static .hud, .static .flash, .static .fx-mid, .static .fx-front, .static [data-sound] { display: none; }
 </style>
 </head>
 <body>
@@ -242,9 +267,24 @@ body {
   <p class="eyebrow">Storyteller <b>/</b> <span class="series-title">The Beginning After the End</span></p>
   <h1 class="headline chapter-title">The Duel</h1>
   <p class="lede">Each panel is split into a <strong>background</strong>, a <strong>character</strong> layer and <strong>speech bubbles</strong>. Scroll to play the chapter; scroll back to rewind it. Turn the sound on for the music and the sword effects.</p>
+  <p class="credit" hidden></p>
   <div class="actions">
+    <button class="sound auto-toggle" type="button" data-auto data-off="Auto-scroll" data-on="Pause" aria-pressed="false"><svg class="icon" viewBox="0 0 10 10" aria-hidden="true"><path class="play" d="M2 1 L9 5 L2 9 Z"/><path class="pause" d="M2 1h2.2v8H2zM5.8 1H8v8H5.8z"/></svg><span class="label">Auto-scroll</span></button>
     <button class="sound" type="button" data-sound data-off="Play with sound" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Play with sound</span></button>
     <a class="sound playlist" href="https://open.spotify.com/playlist/7dbe38KmEgww6qeiyGGWHe" target="_blank" rel="noopener">Reading playlist <span class="arrow" aria-hidden="true">↗</span></a>
+  </div>
+  <label class="speed" data-auto>
+    <span class="eyebrow">Auto-scroll speed</span>
+    <input class="speed-range" type="range" min="0.5" max="2" step="0.1" value="1">
+    <output class="speed-value">1.0×</output>
+  </label>
+  <div class="phone" hidden>
+    <img class="phone-qr" alt="QR code for the reader's address on your home network" width="132" height="132">
+    <div>
+      <p class="eyebrow">Read on your phone</p>
+      <p class="phone-url"></p>
+      <p class="phone-note">Same Wi-Fi as this computer. Scan the code with the phone's camera, or type the address.</p>
+    </div>
   </div>
   <nav class="chapters" aria-label="Chapters">
     <p class="eyebrow">Chapters</p>
@@ -259,7 +299,10 @@ body {
     <div class="hud" aria-hidden="true">
       <div class="progress"></div>
       <div class="counter">Panel <b class="counter-now">01</b> / <span class="counter-total">10</span></div>
-      <button class="sound" type="button" data-sound data-off="Sound off" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Sound off</span></button>
+      <div class="hud-controls">
+        <button class="sound auto-toggle" type="button" data-auto data-off="Auto" data-on="Pause" aria-pressed="false"><svg class="icon" viewBox="0 0 10 10" aria-hidden="true"><path class="play" d="M2 1 L9 5 L2 9 Z"/><path class="pause" d="M2 1h2.2v8H2zM5.8 1H8v8H5.8z"/></svg><span class="label">Auto</span></button>
+        <button class="sound" type="button" data-sound data-off="Sound off" data-on="Sound on" aria-pressed="false"><span class="dot"></span><span class="label">Sound off</span></button>
+      </div>
     </div>
   </div>
 </main>
@@ -267,6 +310,7 @@ body {
 <footer class="card">
   <p class="eyebrow end-label">End of the chapter</p>
   <p class="headline end-title">To be continued</p>
+  <p class="credit" hidden></p>
   <div class="actions">
     <a class="sound next-chapter" href="#" hidden>Next chapter <span class="arrow" aria-hidden="true">→</span></a>
     <button class="sound to-menu" type="button">All chapters <span class="arrow" aria-hidden="true">↑</span></button>
@@ -277,11 +321,17 @@ body {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <script src="series.js"></script>
 <script>
+// on the PC reader (tools/reader/reader.py) the chapter menu comes from the chapters folder itself
+if (location.protocol === "http:" && /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname))
+  document.write('<script src="__chapters.js" onerror="void 0"><\/script>');
+</script>
+<script>
 /* ======================================================================
    The reader. Each chapter's scene plan lives in chapters/<id>/chapter.js (see site/README.md),
    the chapter list and the music themes in series.js. The address picks the chapter: index.html#<id>.
    ====================================================================== */
 const SERIES = window.SERIES || { title: "", chapters: [], themes: {} };
+if (window.LOCAL_CHAPTERS && window.LOCAL_CHAPTERS.length) SERIES.chapters = window.LOCAL_CHAPTERS;
 let CHAPTER = null, SCENES = [], ASSETS = "", MUSIC = [];
 function registerChapter(c) { CHAPTER = c; } // called by chapter.js
 
@@ -296,6 +346,12 @@ window.addEventListener("hashchange", () => {
 
 const label = (c) => (c.number != null ? `Ch. ${c.number}` : "Ch. —");
 document.querySelector(".series-title").textContent = SERIES.title;
+// the credit line: the original work's creators, then who made this (plain text; **bold** for names)
+if (SERIES.credit) document.querySelectorAll(".credit").forEach((el) => {
+  el.textContent = SERIES.credit;
+  el.innerHTML = el.innerHTML.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  el.hidden = false;
+});
 const playlist = document.querySelector(".playlist");
 if (SERIES.playlist) playlist.href = SERIES.playlist; else playlist.hidden = true;
 document.querySelector(".chapter-list").innerHTML = SERIES.chapters.map((c) =>
@@ -305,6 +361,27 @@ document.querySelector(".to-menu").addEventListener("click", () => {
   window.scrollTo(0, 0);
   document.querySelector(".chapter-list a")?.focus({ preventScroll: true });
 });
+
+// on the PC reader, the title card shows the address (and a QR code) for phones on the same Wi-Fi
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  fetch("__phone.json").then((r) => (r.ok ? r.json() : null)).then((info) => {
+    const url = info && info.urls && info.urls[0];
+    if (!url) return;
+    const box = document.querySelector(".phone");
+    box.querySelector(".phone-url").textContent = url;
+    box.hidden = false;
+    const qr = document.createElement("script");
+    qr.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
+    qr.onload = () => {
+      const code = qrcode(0, "M");
+      code.addData(url);
+      code.make();
+      box.querySelector(".phone-qr").src = code.createDataURL(4, 2);
+    };
+    qr.onerror = () => box.querySelector(".phone-qr").remove(); // offline: the address alone
+    document.head.appendChild(qr);
+  }).catch(() => {});
+}
 
 // the music: each stretch of the chapter names a theme; a theme used again plays its next take
 function resolveMusic(zones = []) {
@@ -442,6 +519,7 @@ if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
   gsap.registerPlugin(ScrollTrigger);
   layout();
   buildTimeline();
+  makeAutoScroll();
   window.addEventListener("resize", () => { layout(); ScrollTrigger.refresh(); });
   gsap.ticker.add(() => {
     const now = timeline.time();
@@ -497,7 +575,9 @@ function buildTimeline() {
       }
       tl.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
         { scale: 1, rotation: 0, autoAlpha: 1, duration: 0.08 * L, ease: "back.out(2.2)" }, at(b.at));
-      tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(0.8));
+      // `out` moves the fade later, for a bubble low on a tall panel the camera reaches late (0.92 or more: it stays)
+      const out = b.out ?? 0.8;
+      if (out < 0.92) tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(out));
     });
     (s.sfx || []).forEach((f) => cues.push({ time: at(f.at), sfx: f.sound }));
 
@@ -558,6 +638,98 @@ function toGsap(v = {}) {
   return out;
 }
 
+/* ---------------------------------------------------------------- auto-scroll
+   Scrolls the page by itself at the reader's chosen speed (the slider on the title card, remembered on this device),
+   easing almost to a stop after each speech bubble pops in, long enough to read it (bigger bubbles hold more words),
+   and lingering after the big moments. Any touch, wheel or key from the reader pauses it: they always win. */
+function makeAutoScroll() {
+  const BASE = 60;               // units (vh) a second at 1x: about 3-4 s per panel
+  const CRAWL = 0.04;            // the speed left during a hold
+  const PAUSES = SERIES.autoScroll?.pauses ?? 0.65; // how long the holds are (1 = the first, longer version)
+  const buttons = [...document.querySelectorAll(".auto-toggle")];
+  const range = document.querySelector(".speed-range"), shown = document.querySelector(".speed-value");
+  let speed = 1, playing = false, y = 0, setY = -1, factor = 1, holdUntil = 0, next = 0, last = 0;
+  try { speed = Math.min(2, Math.max(0.5, parseFloat(localStorage.getItem("storyteller.autoSpeed")) || 1)); } catch {}
+
+  // where to hold, in units along the story, and for how long at 1x
+  const holds = [];
+  const BIG = { crash: 1.3, shatter: 0.9, parry: 0.7, deflect: 0.6, thud: 0.7 };
+  SCENES.forEach((s, i) => {
+    const at = (f) => starts[i] + f * s.length;
+    (s.bubbles || []).forEach((b) => holds.push([at(b.at + 0.05), Math.min(4, Math.max(1, 0.6 + (b.w * b.h) / 75000))]));
+    (s.sfx || []).forEach((f) => BIG[f.sound] && holds.push([at(f.at) + 2, BIG[f.sound]]));
+    (s.flashes || []).forEach((f) => (f.hold || (f.strength ?? 0.85) >= 0.6) && holds.push([at(f.at + (f.hold || 0)) + 2, f.hold ? 1.4 : 0.8]));
+    (s.fx?.bursts || []).forEach((b) => b.type === "shatter" && holds.push([at(b.at) + 2, 0.9]));
+  });
+  holds.sort((a, b) => a[0] - b[0]);
+  for (let k = holds.length - 1; k > 0; k--) // moments close together share one hold, the longest
+    if (holds[k][0] - holds[k - 1][0] < 8) { holds[k - 1][1] = Math.max(holds[k - 1][1], holds[k][1]); holds.splice(k, 1); }
+
+  const storyTop = () => document.getElementById("story").offsetTop;
+  const unitsAt = (py) => ((py - storyTop()) / innerHeight) * 100;
+  const end = () => document.documentElement.scrollHeight - innerHeight;
+
+  function label() {
+    for (const b of buttons) {
+      b.setAttribute("aria-pressed", String(playing));
+      b.querySelector(".label").textContent = playing ? b.dataset.on : b.dataset.off;
+    }
+  }
+  function showSpeed() {
+    range.value = speed;
+    shown.textContent = `${speed.toFixed(1)}×`;
+  }
+  function play() {
+    if (scrollY >= end() - 2) scrollTo(0, 0); // at the end: start over
+    y = scrollY; setY = -1; factor = 1; holdUntil = 0; last = 0;
+    const u = unitsAt(y);
+    next = holds.findIndex((h) => h[0] > u + 1);
+    if (next < 0) next = holds.length;
+    playing = true; label();
+    requestAnimationFrame(step);
+  }
+  function pause() { playing = false; label(); }
+
+  function step(clock) {
+    if (!playing) return;
+    const dt = last ? Math.min(0.1, (clock - last) / 1000) : 0;
+    last = clock;
+    // the reader scrolled by hand (a scrollbar drag, find-in-page): follow them, and stop
+    if (setY >= 0 && Math.abs(scrollY - setY) > 3) { pause(); return; }
+    const u = unitsAt(y);
+    while (next < holds.length && holds[next][0] <= u) {
+      // slower readers get longer holds, faster ones shorter; +0.3 s as the picture trails the scroll a little (scrub)
+      holdUntil = Math.max(holdUntil, clock + (0.3 + (PAUSES * holds[next][1]) / Math.sqrt(speed)) * 1000);
+      next++;
+    }
+    const target = clock < holdUntil ? CRAWL : 1;
+    factor += (target - factor) * Math.min(1, dt / (target < factor ? 0.18 : 0.4)); // brake quickly, set off gently
+    y = Math.min(end(), y + BASE * speed * factor * dt * innerHeight / 100);
+    scrollTo(0, y);
+    setY = scrollY;
+    if (y >= end() - 1) { pause(); return; }
+    requestAnimationFrame(step);
+  }
+
+  buttons.forEach((b) => b.addEventListener("click", () => (playing ? pause() : play())));
+  showSpeed();
+  range.addEventListener("input", () => {
+    speed = parseFloat(range.value);
+    showSpeed();
+    try { localStorage.setItem("storyteller.autoSpeed", String(speed)); } catch {}
+  });
+  // the reader's own hand pauses it (but not a press on the controls themselves)
+  const mine = (e) => e.target.closest && e.target.closest(".auto-toggle, .speed, [data-sound], a, button");
+  addEventListener("wheel", () => playing && pause(), { passive: true });
+  addEventListener("touchstart", (e) => playing && !mine(e) && pause(), { passive: true });
+  addEventListener("mousedown", (e) => playing && !mine(e) && pause());
+  addEventListener("keydown", (e) => {
+    if (!playing || mine(e)) return; // keys on the controls work the controls
+    if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"].includes(e.key)) pause();
+  });
+  document.addEventListener("visibilitychange", () => document.hidden && playing && pause());
+}
+
 /* ---------------------------------------------------------------- particles
    Ambient particles live in each panel, between its background and characters, and drift on the clock.
    Impact bursts are drawn over the stage and follow the scroll, so they rewind when the reader scrolls back. */
@@ -567,8 +739,8 @@ function makeParticles() {
   stage.insertBefore(front, flash);
   const fctx = front.getContext("2d");
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-  const TINTS = { paper: "241,236,228", mana: "70,190,255", ember: "255,138,42", spark: "255,226,150", wood: "150,98,56" };
-  const CORES = { paper: "255,252,246", mana: "232,250,255", ember: "255,242,204", spark: "255,255,255", wood: "190,140,90" };
+  const TINTS = { paper: "241,236,228", mana: "70,190,255", ember: "255,138,42", spark: "255,226,150", wood: "150,98,56", wind: "120,255,200" };
+  const CORES = { paper: "255,252,246", mana: "232,250,255", ember: "255,242,204", spark: "255,255,255", wood: "190,140,90", wind: "236,255,246" };
   const glows = {};
   const glow = (tint) => glows[tint] || (glows[tint] = (() => {
     const c = document.createElement("canvas");
@@ -690,13 +862,13 @@ function makeParticles() {
       add(30, () => ({ kind: "chip", a: R(-170, -10) * deg, v: R(0.25, 0.75), g: 1.1, size: R(3, 9), life: R(0.5, 1), spin: R(-14, 14), tint: "wood" }));
       add(10, () => ({ kind: "puff", a: R(-180, 0) * deg, v: R(0.04, 0.14), g: 0, size: R(14, 34), life: R(0.6, 1.1), tint: "paper" }));
     } else if (b.type === "sparks") {
-      add(80, () => ({ kind: "streak", a: R(0, 360) * deg, v: R(0.4, 1.4), g: 0.7, size: R(1, 2.6), life: R(0.25, 0.8), tint: r() < 0.5 ? "spark" : "mana" }));
+      add(80, () => ({ kind: "streak", a: R(0, 360) * deg, v: R(0.4, 1.4), g: 0.7, size: R(1, 2.6), life: R(0.25, 0.8), tint: r() < 0.5 ? "spark" : b.tint || "mana" }));
       parts.push({ kind: "ring", life: 0.35, size: 0.35 });
     } else if (b.type === "ring") {
       add(26, () => ({ kind: "puff", a: R(0, 360) * deg, v: R(0.1, 0.3), g: 0, flat: 0.4, size: R(10, 22), life: R(0.4, 0.8), tint: "paper" }));
       parts.push({ kind: "ring", life: 0.3, size: 0.22 });
     } else if (b.type === "flare") {
-      add(60, () => ({ kind: "glow", a: R(-130, -50) * deg, v: R(0.2, 0.7), g: -0.15, size: R(2, 5), life: R(0.5, 1.3), tint: "mana" }));
+      add(60, () => ({ kind: "glow", a: R(-130, -50) * deg, v: R(0.2, 0.7), g: -0.15, size: R(2, 5), life: R(0.5, 1.3), tint: b.tint || "mana" }));
     } else if (b.type === "shatter") {
       // glass cracks: jagged lines that grow out from the impact and stay a while, with branches; shards fly off
       const crack = (a0, len, steps, life) => {
@@ -844,7 +1016,9 @@ function makeParticles() {
    and the page simply stays quiet for any file that is not there yet. */
 function makeSound() {
   const buttons = [...document.querySelectorAll("[data-sound]")];
-  let ctx = null, on = false, effects = {}, last = 0;
+  let ctx = null, on = false, effects = {}, last = 0, musicBus = null;
+  // the music sits under the effects and dips under each one, so clashes and impacts read over the war drums
+  const MIX = { music: 0.65, dip: 0.5, ...(SERIES.mix || {}) };
   const tracks = []; // one per MUSIC entry that loaded: its gain, the stretch of story it covers, its volume
 
   function label() {
@@ -878,6 +1052,9 @@ function makeSound() {
     const sfxGain = ctx.createGain();
     sfxGain.gain.value = 0.65; // headroom: the browser's limiter is not a brick wall, so sharp metal hits need room
     sfxGain.connect(limiter);
+    musicBus = ctx.createGain();
+    musicBus.gain.value = MIX.music;
+    musicBus.connect(limiter);
     effects = makeEffects(ctx, sfxGain);
     // recorded sounds (sword deflects): a missing file falls back to the synthesised blade hit
     await Promise.all(Object.entries(SERIES.sounds || {}).map(async ([name, sound]) => {
@@ -905,7 +1082,7 @@ function makeSound() {
       while (z > d.length - edge && Math.abs(d[z]) < 1e-3) z--;
       src.loopStart = a / buffer.sampleRate;
       src.loopEnd = (z + 1) / buffer.sampleRate;
-      src.connect(gain).connect(limiter);
+      src.connect(gain).connect(musicBus);
       src.start(0, src.loopStart);
       tracks.push({ gain, span: span(m), volume: m.volume ?? 0.5, level: -1 });
     }));
@@ -937,7 +1114,10 @@ function makeSound() {
     if (now > last && now - last < 25) { // forward, and not a jump across the page
       for (const cue of cues) {
         if (cue.time <= last || cue.time > now) continue;
-        effects[cue.sfx]?.(ctx.currentTime + 0.01);
+        const t = ctx.currentTime + 0.01;
+        effects[cue.sfx]?.(t);
+        musicBus.gain.setTargetAtTime(MIX.music * MIX.dip, t - 0.01, 0.015); // duck under the hit, then come back
+        musicBus.gain.setTargetAtTime(MIX.music, t + 0.35, 0.25);
       }
     }
     last = now;
