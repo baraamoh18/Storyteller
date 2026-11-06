@@ -53,9 +53,11 @@ halftone dots, Bangers / Archivo Narrow / IBM Plex Mono. Scroll-scrubbed timelin
 
 ## 3. Where everything lives
 
-* **Repo:** `github.com/baraamoh18/Storyteller`, private. Default branch `claude/project-thread-6clyex` (it has PR #3 merged:
-  everything up to `b7cc967`). **This session's branch: `claude/new-session-4xc7k0`** (all work below; **no PR yet**, the user
-  has not asked for one). Older branch `claude/new-session-em88ar` (PR [baraamoh18/Storyteller#2](https://github.com/baraamoh18/Storyteller/pull/2)).
+* **Repo:** `github.com/baraamoh18/Storyteller`, private. Default branch `claude/project-thread-6clyex`. **Fourth session
+  (2026-11-06, branch `claude/new-session-259v6s`):** brought the third session's branch `claude/new-session-4xc7k0` in, added the
+  root `README.md` (banner and desktop screenshot in `docs/images/`, made by Playwright from `docs/images/banner.html` and the
+  running reader), let `reader.py` run straight from a GitHub download, and merged it all into the default branch at the user's
+  request. Older branch `claude/new-session-em88ar` (PR [baraamoh18/Storyteller#2](https://github.com/baraamoh18/Storyteller/pull/2)).
 * **Claude preview artifact** (private): https://claude.ai/artifact/G6A8f5qCYfSL8KYwcFWKxH — version 11 shows chapter 94 but an
   **older reader** (no credit line, auto-scroll or new mix). The Cloudflare sites replaced it for sharing; republish only if asked
   (copy of `site/index.html` without the doctype/html/head/body lines, `root = site/`, files listed explicitly; ≤ 255 files per
@@ -309,6 +311,8 @@ Delivery: the user uploads zips into the session, 2–3 per message. (A private 
 * First run on Windows: the firewall asks for Python → **Private networks → Allow**. Phone problems: same Wi-Fi, network profile
   **Private**, firewall app list (all in `README.txt`).
 * PowerShell could not be tested here (downloading it was refused), hence Python.
+* **Run from the project** (GitHub download): with no `reader/` folder next to it, `reader.py` serves `../../site` and its inbox
+  is `tools/reader/new chapters/` (git-ignored); it lists chapters with no pictures under "No pictures yet for".
 
 ---
 

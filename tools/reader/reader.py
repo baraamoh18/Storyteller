@@ -24,6 +24,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE / "reader"
+if not (ROOT / "index.html").exists() and (HERE.parents[1] / "site" / "index.html").exists():
+    ROOT = HERE.parents[1] / "site"  # run straight from a download of the GitHub project: serve its site folder
 INBOX = HERE / "new chapters"
 # what a reader pack may contain: chapter folders, and updates to the reader itself
 PACK_PARTS = {"chapters", "music", "sfx", "index.html", "series.js"}
@@ -168,7 +170,8 @@ def main():
 
     print("\n  Storyteller reader\n  ==================\n")
     if not (ROOT / "index.html").exists():
-        print(f"  The reader files are missing: there should be a folder called reader next to this file ({ROOT}).")
+        print(f"  The reader files are missing: there should be a folder called reader next to this file ({ROOT}),"
+              " or this file should sit in tools/reader of the Storyteller project.")
         return 1
     add_packs()
     server = None
@@ -185,6 +188,10 @@ def main():
     port = server.server_address[1]
     chapters = chapter_list()
     print(f"  Chapters: {', '.join(c['id'] for c in chapters) or 'none yet'}")
+    bare = [c["id"] for c in chapters if not any((ROOT / "chapters" / c["id"]).glob("*.webp"))]
+    if bare:
+        print(f"  No pictures yet for: {', '.join(bare)}. Put their reader pack (reader-pack_<chapter>.zip) in the"
+              f" \"new chapters\" folder ({INBOX}) and start the reader again.")
     print(f"\n  On this computer:  http://localhost:{port}/")
     phones = phone_addresses(port)
     if phones:

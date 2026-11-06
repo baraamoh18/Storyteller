@@ -4,3 +4,6 @@ dist/
 # chapter images stay out of the project: they come from the chapter zips
 site/chapters/*/*.webp
 site/chapters/*/*.jpg
+
+# the desktop reader run from the project: its inbox for reader packs
+tools/reader/new chapters/
