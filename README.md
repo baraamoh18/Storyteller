@@ -32,6 +32,9 @@ published by Tapas). See [Credits and copyright](#-credits-and-copyright).
   <br><sub>The desktop reader's first screen, with the QR code that opens the same reader on your phone.</sub>
 </p>
 
+> 📘 **Every detail** (each script step by step, the AI models, the frontend engine, music, sound, builds): see
+> [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md).
+
 ## Contents
 
 - [Features](#-features)
