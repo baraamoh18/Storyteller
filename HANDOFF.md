@@ -1,6 +1,6 @@
 # Project Handoff: AI-Driven Manhwa Scrollytelling Reader
 
-> **Last updated 2026-11-05 (end of the third session).** Read **Section 0** first, then **Section 13 (next steps)** and
+> **Last updated 2026-11-10 (fourth session: README, docs, reader performance).** Read **Section 0** first, then **Section 13 (next steps)** and
 > **Section 14 (how to work)**. `project_handoff_document.md` is the very first, obsolete handoff.
 
 ---
@@ -9,6 +9,7 @@
 
 | Part | State |
 |---|---|
+| **Reader performance (fourth session)** | Reworked for phones (Section 8, "Performance"; `docs/HOW_IT_WORKS.md` 8.14; checks in `tools/perf/`). **Tested only here on a simulated phone; the user has not tried it on a real phone yet, and the websites still run the old reader**: building the new zips needs `chapter_094.zip` from the user (images are not in the container). |
 | **Reader** (`site/`) | Multi-chapter series reader: chapter menu, scroll-scrubbed parallax scenes, particles, synthesised + recorded sound effects, themed music with crossfades and **ducking under effects**, **auto-scroll** with a speed slider that slows for bubbles and big moments, a **credit line**, and on the PC a "Read on your phone" QR card. |
 | **Chapter 94 "The Duel"** | **Directed in full and approved by the user.** `site/chapters/094/chapter.js` (90 scenes). Images are **not in git**: they come from `chapter_094.zip` (user's Drive `Storyteller/chapters/`). The old 60-panel `duel` cut is deleted (commit `cab2a0a`; still in history). |
 | **Public demo** | `site/chapters/094-demo/chapter.js`: 19 panels cut from 094 (opening + finale) for LinkedIn. |
@@ -199,7 +200,16 @@ Delivery: the user uploads zips into the session, 2–3 per message. (A private 
 
 ## 8. The reader (`site/`, details in `site/README.md`)
 
-* GSAP 3.12.5 + ScrollTrigger (cdnjs); one pinned stage; one timeline, **1 unit = 1vh**, `scrub: 0.7`.
+* GSAP 3.12.5 + ScrollTrigger and the fonts from **`site/vendor/`** (no other server; falls back to cdnjs / Google Fonts if the
+  folder is missing); one pinned stage; one timeline holding one timeline per panel, **1 unit = 1vh**, `scrub: 0.7`.
+* **Performance (fourth session):** `focus()` keeps only the playing panel and its two neighbours drawn (`.scene.away` =
+  `display: none`); `gsap.set([p.zoom, p.shake], { x: 0 })` primes GSAP's transform cache (it needs a drawn element);
+  `img.decode()` one panel ahead; `.frame` uses a border, not an outline (an outline + box-shadow was re-rastered every
+  frame); no layout reads per frame; resize only acts when the stage changed size (`ignoreMobileResize`); auto-scroll's
+  units come from `scroller.start/end` (with `innerHeight` the pauses came early on phones: reasoned from the maths, not
+  reproducible in emulation); soft front particles on a half-size canvas; particles capped at 60/s; a quality valve for
+  slow devices (`?fx=full` turns it off); music loads one track at a time, nearest first. Animation output proven
+  unchanged with `tools/perf/dump.js` + `compare.js`.
 * `series.js` first; `index.html#<id>` picks the chapter; `chapters/<id>/chapter.js` → `registerChapter(...)` → `boot()`.
   "Chapter not ready" = that chapter.js did not load (on Cloudflare a missing file returns index.html, so it shows as that).
 * **Per panel:** `.scene` → `.zoom` → `.shake` → `.pan` → `.rig` → `.frame` (`img.bg`, `canvas.fx-mid`, `img.chars`); bubbles in `.rig`,
@@ -218,7 +228,7 @@ Delivery: the user uploads zips into the session, 2–3 per message. (A private 
     1.0 too long); crawl 4% during a hold; brake τ 0.18 s, set off τ 0.4 s; wheel / touch / scroll keys / manual scroll pause it;
     stops at the end card; keys on the controls work the controls. Measured: first bubble hold 1.9 s at 1×; chapter ≈ 6 min at 1×.
   * **PC-only:** loads `__chapters.js` (chapter menu built from the chapters folder) on http + localhost/IP hosts, and on
-    localhost shows "Read on your phone" with the LAN address and a QR code (`qrcode-generator@1.4.4` from jsdelivr).
+    localhost shows "Read on your phone" with the LAN address and a QR code (`vendor/qrcode.js`). The PC reader now works offline.
 * **Reduced motion:** plain column, no animation, sound or auto-scroll.
 * **Bugs already fixed:** no `invalidateOnRefresh`; the pan lives on `.pan`; `.zoom` centred by hand.
 
@@ -318,6 +328,11 @@ Delivery: the user uploads zips into the session, 2–3 per message. (A private 
 
 ## 13. Next steps (in order)
 
+0. **Reader performance hand-over:** get `chapter_094.zip` from the user, unzip its `094/*.webp` into `site/chapters/094/`
+   (not panels 90, 91), run `cut_chapter.py` for `094-demo`, rebuild the cover, build `--site` and the demo zip, send both with
+   the upload steps, and ask how it feels on their phone (which phone and browser). Then open a PR for the branch if they
+   are happy. `--reader-update` carries only index.html + series.js (old PC readers refuse a `vendor/` folder).
+
 1. **Kaggle rerun:** ask whether it finished; get the zips + `log_gpu0/1.txt`. Check dropped pages (`sheets/pages.jpg`) and the new
    tall-panel splits by eye on a couple of chapters, then **direct chapters from Episode 1**, one plan + preview per chapter, user
    approval, then a reader pack and rebuilt website zip.
@@ -357,8 +372,9 @@ Delivery: the user uploads zips into the session, 2–3 per message. (A private 
   Downloading/running external binaries (e.g. PowerShell) was refused by the permission system.
 * ffmpeg/ffprobe are installed; `pip install opencv-python-headless scipy` is needed to import `split_layers` (torch is not
   installable: test the maker with stand-in models: `character_alpha`, `character_colours`, `fill_background`, `timings`).
-* **Site tests:** serve `site/` with `python3 -m http.server 8765`, drive it with the preinstalled Playwright, route cdnjs GSAP to a
-  local copy, abort or route Google Fonts; stop with `pkill -f "http.serve[r] 8765"`. Useful: `--host-resolver-rules=MAP
+* **Site tests:** `tools/perf/` (make_test_site.py draws stand-in pictures, so no chapter zip is needed for checks). Or serve
+  `site/` with `python3 -m http.server 8765` and drive it with the preinstalled Playwright (nothing to route any more: GSAP and
+  the fonts are in `site/vendor/`); stop with `pkill -f "http.serve[r] 8765"`. Useful: `--host-resolver-rules=MAP
   <name>.pages.dev 127.0.0.1` to test as the website; `page.clock` for deterministic frames; `--autoplay-policy=no-user-gesture-required`
   and patching `AudioParam.prototype.setTargetAtTime` to check ducking.
 * Commit and push to `claude/new-session-4xc7k0` (or the branch the session is given) after each change.
