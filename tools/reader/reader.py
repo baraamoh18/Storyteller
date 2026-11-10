@@ -28,10 +28,10 @@ if not (ROOT / "index.html").exists() and (HERE.parents[1] / "site" / "index.htm
     ROOT = HERE.parents[1] / "site"  # run straight from a download of the GitHub project: serve its site folder
 INBOX = HERE / "new chapters"
 # what a reader pack may contain: chapter folders, and updates to the reader itself
-PACK_PARTS = {"chapters", "music", "sfx", "index.html", "series.js"}
+PACK_PARTS = {"chapters", "music", "sfx", "vendor", "index.html", "series.js"}
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json",
          ".css": "text/css", ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".svg": "image/svg+xml",
-         ".mp3": "audio/mpeg", ".txt": "text/plain; charset=utf-8"}
+         ".mp3": "audio/mpeg", ".txt": "text/plain; charset=utf-8", ".woff2": "font/woff2"}
 
 
 # ---------------------------------------------------------------- chapter packs

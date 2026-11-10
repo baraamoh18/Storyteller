@@ -7,7 +7,8 @@ The page shows a chapter menu on its title card; each chapter plays as one long 
 
 Open `index.html` through a local web server: run `python -m http.server` in this folder and open <http://localhost:8000>.
 (Double-clicking the file shows the panels, but browsers block the music when a page is opened as a file.)
-It needs an internet connection for GSAP and the fonts. `index.html#094` opens the chapter with the id `094`.
+GSAP and the fonts come with the page (`vendor/`), so it works without an internet connection. `index.html#094` opens the
+chapter with the id `094`.
 
 ## On the user's PC (and phone)
 
@@ -36,6 +37,7 @@ chapters/<id>/chapter.js   one chapter's scene plan and music
 chapters/<id>/*.webp       its layers: panel_XX_background, panel_XX_characters, bubble_*
 music/<theme>_<n>.mp3      the shared music library: seamless loops, made with tools/music/
 sfx/*.mp3                  recorded sound effects (sword deflect and parry), listed in series.js
+vendor/                    GSAP + ScrollTrigger, the QR code maker and the three fonts (sources and licences: vendor/README.txt)
 ```
 
 ## Add a chapter
@@ -91,6 +93,41 @@ Sound effects are made in the browser by code, so they need no files. They play 
 Voices are switched off for now; `tools/voices/make_voices.py` still makes the lines, and the playback code is in the git history (commit `77414a1`).
 
 People who prefer reduced motion get the panels as a plain column instead.
+
+## Performance (phones first)
+
+What keeps the reader light, and what to keep when changing it:
+
+- **Only three panels are part of the page's drawing**: the one playing and its two neighbours (`focus()`). Every other
+  `.scene` has the class `away` (`display: none`), so the browser holds a few panels' layers and unpacked pictures, not
+  ninety (a 90-panel chapter is about 640 MB unpacked). GSAP still animates the switched-off panels' styles, so a jump
+  lands in the right state. GSAP reads an element's transform the first time it animates it, and needs the element
+  drawn for that: `buildTimeline()` does that reading up front (`gsap.set([p.zoom, p.shake], { x: 0 })`). Do the same
+  for any new element that is first animated with `.to()`.
+- **Pictures are unpacked one panel ahead** (`img.decode()` in `preload()`), so a tall panel does not stall its own fade-in.
+- **One timeline per panel**, placed on the chapter's timeline (`tl.add(sc, base)`). GSAP steps over a finished or
+  not-yet-started panel in one go, instead of checking each of ~1,500 moves on every frame.
+- **The white line round a panel is a `border`, not an `outline`.** Chrome redrew an outline with a box-shadow from scratch
+  on every frame the camera moved (about ten tiles a frame); a border on a box 2px bigger looks the same and is drawn once.
+- **Nothing is measured on every frame.** No `getBoundingClientRect`, `offsetTop` or `scrollHeight` in the frame loop
+  (each one forces the browser to work out styles early): the panel's place is only measured while a burst plays, the
+  story being on screen comes from an `IntersectionObserver`, and auto-scroll takes its place from ScrollTrigger's own
+  `start` / `end`.
+- **A phone's address bar is not a resize.** The stage is `100svh`, which does not change when the bar slides away, so
+  the layout and `ScrollTrigger.refresh()` only run when the stage itself changed size (`ignoreMobileResize` too).
+- **Particles:** the big soft ones in front have a half-size canvas of their own (they are blurs); the sharp canvas over
+  the stage is only touched while a burst plays; on a 120 Hz screen particles keep to 60 pictures a second; on a tall
+  panel only the particles near the part in view are drawn. A device that still cannot keep up (under about 38 pictures
+  a second for 4 seconds) gets fewer particles, then a coarser particle canvas; pictures and timing never change.
+  `index.html?fx=full#094` switches that off.
+- **One server.** GSAP, the fonts and the QR code maker are in `vendor/`. A reader folder from before `vendor/` existed
+  still works: the page then takes them from cdnjs and Google Fonts.
+- **Music loads one track at a time**, the stretch the reader is in first; the effects never wait for it.
+
+Check a change with `tools/perf/` (stand-in pictures, a simulated phone with the processor slowed four times):
+`measure.js` (frame times and where the main thread's time goes), `dump.js` + `compare.js` (is every animated element
+in exactly the same state as before, at 4,500 places?), `func.js` (auto-scroll, sound, rotation, reduced motion, the
+fallbacks). Details: `tools/perf/README.md`.
 
 ## Assets
 

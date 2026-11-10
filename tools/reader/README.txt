@@ -34,4 +34,4 @@ New chapters
 - Chapter zips from the chapter-making kit (chapter_<number>.zip) are not reader packs: those go to
   Claude first, to be directed.
 
-The reader needs an internet connection for its animation library and fonts.
+The reader works without an internet connection (its animation library and fonts come with it).

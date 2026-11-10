@@ -45,11 +45,30 @@ def reader_files():
     for folder in ("music", "sfx"):
         for p in sorted((SITE / folder).glob("*.mp3")):
             yield p, f"{folder}/{p.name}"
+    # the animation library and the fonts, served with the reader (no other server is asked for anything)
+    for p in sorted((SITE / "vendor").rglob("*")):
+        if p.is_file():
+            yield p, p.relative_to(SITE).as_posix()
+
+
+# the reader page itself: what a reader update carries (vendor/ rarely changes, and readers unzipped before it
+# existed refuse packs with a vendor folder; the page falls back to the web for it)
+PAGE = ("index.html", "series.js")
 
 
 # for the website: open to anyone with the address, but kept out of search engines
 SITE_HEADERS = """/*
   X-Robots-Tag: noindex, nofollow, noimageindex
+"""
+# for every website: the library, fonts, music and sounds do not change, so the visitor's browser keeps them (a month,
+# a week) instead of asking the server about each one on every visit. Chapter folders keep Cloudflare's default
+# (asked every time, answered "not changed"): a chapter plan and its pictures must never be out of step.
+CACHE_HEADERS = """/vendor/*
+  Cache-Control: public, max-age=2592000
+/music/*
+  Cache-Control: public, max-age=604800
+/sfx/*
+  Cache-Control: public, max-age=604800
 """
 ROBOTS = "User-agent: *\nDisallow: /\n"
 
@@ -129,14 +148,14 @@ def main():
                     z.write(p, f"chapters/{cid}/{p.name}", zipfile.ZIP_STORED)
             if args.cover:
                 z.write(args.cover, "cover.jpg", zipfile.ZIP_STORED)
+            z.writestr("_headers", CACHE_HEADERS if url else SITE_HEADERS + CACHE_HEADERS)
             if not url:  # the friends' site: kept out of search engines (LinkedIn's preview reads robots.txt too)
-                z.writestr("_headers", SITE_HEADERS)
                 z.writestr("robots.txt", ROBOTS)
     elif args.reader_update:
         out = DIST / "reader-update.zip"
         with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             for p, name in reader_files():
-                if name.endswith((".html", ".js")):
+                if name in PAGE:
                     z.write(p, name)
     elif args.pack:
         out = DIST / f"reader-pack_{'_'.join(args.pack)}.zip"
@@ -146,7 +165,7 @@ def main():
                     z.write(p, f"chapters/{cid}/{p.name}")
             if args.with_reader:
                 for p, name in reader_files():
-                    if name.endswith((".html", ".js")):
+                    if name in PAGE:
                         z.write(p, name)
     else:
         out = DIST / "Storyteller-Reader.zip"

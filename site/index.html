@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Storyteller Duel Scene</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Archivo+Narrow:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="preload" href="vendor/fonts/bangers-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/archivo-narrow-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+/* The fonts and the animation library live in vendor/, next to this page: a phone reaches one server, not four,
+   and nothing on the page waits for another site. (Sources and licences: vendor/README.txt) */
+@font-face { font-family: "Bangers"; font-weight: 400; font-display: swap; src: url(vendor/fonts/bangers-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Archivo Narrow"; font-weight: 400; font-display: swap; src: url(vendor/fonts/archivo-narrow-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Archivo Narrow"; font-weight: 600; font-display: swap; src: url(vendor/fonts/archivo-narrow-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url(vendor/fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2"); }
 /* Layout: one pinned stage the reader scrubs through like a film strip; a title card above, an end card below.
    Single dark look on purpose (neo-noir comic): ink black, paper white, one flat red. */
 :root {
@@ -108,6 +113,8 @@ body {
   opacity: 0;
 }
 .scene:first-child { visibility: visible; opacity: 1; }
+/* only the panels at the reader's place are drawn (see `focus`): the rest hold no layers and no unpacked pictures */
+.scene.away { display: none; }
 .zoom, .shake, .pan, .rig { position: relative; will-change: transform; }
 /* centred by hand: a grid would pin a panel taller than the screen to the top instead */
 .zoom { position: absolute; left: 50%; top: 50%; width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); }
@@ -115,12 +122,14 @@ body {
 /* the pan down a tall panel: --pan runs 0 to 1 with the scroll, --travel is how far that is on this screen.
    It has its own wrapper because GSAP resets `translate` on any element whose transform it animates. */
 .pan { translate: 0 calc((0.5 - var(--pan, 0.5)) * var(--travel, 0px)); }
+/* The white line round a panel is a border on a box 2px bigger, not an outline: Chrome redrew an outline with a
+   shadow from scratch on every frame the camera moved (about ten tiles a frame); a border is drawn once. */
 .frame {
   position: absolute;
-  inset: 0;
+  inset: -2px;
   overflow: hidden;
   background: var(--ink-2);
-  outline: 2px solid var(--paper);
+  border: 2px solid var(--paper);
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
 }
 .frame img, .bubble {
@@ -317,8 +326,13 @@ body {
   </div>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="vendor/gsap.min.js"></script>
+<script src="vendor/ScrollTrigger.min.js"></script>
+<script>
+// a reader folder from before vendor/ existed (only its page was updated): take the library from the web instead
+if (!window.gsap || !window.ScrollTrigger) document.write(["gsap", "ScrollTrigger"].map((f) =>
+  `<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/${f}.min.js"><\/script>`).join(""));
+</script>
 <script src="series.js"></script>
 <script>
 // on the PC reader (tools/reader/reader.py) the chapter menu comes from the chapters folder itself
@@ -331,6 +345,16 @@ if (location.protocol === "http:" && /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d
    the chapter list and the music themes in series.js. The address picks the chapter: index.html#<id>.
    ====================================================================== */
 const SERIES = window.SERIES || { title: "", chapters: [], themes: {} };
+// a reader folder from before vendor/ existed has no font files: take the fonts from Google Fonts instead
+if (document.fonts && document.fonts.load) {
+  const webFonts = () => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Bangers&family=Archivo+Narrow:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap";
+    document.head.appendChild(link);
+  };
+  document.fonts.load('1em "Bangers"').then((faces) => faces.some((f) => f.status === "loaded") || webFonts(), webFonts);
+}
 if (window.LOCAL_CHAPTERS && window.LOCAL_CHAPTERS.length) SERIES.chapters = window.LOCAL_CHAPTERS;
 let CHAPTER = null, SCENES = [], ASSETS = "", MUSIC = [];
 function registerChapter(c) { CHAPTER = c; } // called by chapter.js
@@ -370,16 +394,22 @@ if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
     const box = document.querySelector(".phone");
     box.querySelector(".phone-url").textContent = url;
     box.hidden = false;
-    const qr = document.createElement("script");
-    qr.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js";
-    qr.onload = () => {
+    const draw = () => {
       const code = qrcode(0, "M");
       code.addData(url);
       code.make();
       box.querySelector(".phone-qr").src = code.createDataURL(4, 2);
     };
-    qr.onerror = () => box.querySelector(".phone-qr").remove(); // offline: the address alone
-    document.head.appendChild(qr);
+    const qr = (src, failed) => {
+      const tag = document.createElement("script");
+      tag.src = src;
+      tag.onload = draw;
+      tag.onerror = failed;
+      document.head.appendChild(tag);
+    };
+    // from vendor/; an older reader folder without it asks the web; with neither, the address alone
+    qr("vendor/qrcode.js", () => qr("https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js",
+      () => box.querySelector(".phone-qr").remove()));
   }).catch(() => {});
 }
 
@@ -500,9 +530,37 @@ function preload(i) {
     loaded.add(j);
     SCENES[j].el.querySelectorAll("img[data-src]").forEach((img) => { img.src = img.dataset.src; });
   }
+  // unpack the next panel's pictures now (a phone needs a moment for a tall one), so they are ready when it fades in
+  const next = SCENES[i + 1];
+  if (next && next.unpacked !== i) {
+    next.unpacked = i;
+    for (const img of [next.parts.bg, next.parts.chars]) if (img.decode) img.decode().catch(() => {});
+  }
 }
 
-let timeline = null;
+// Only the panels at the reader's place are part of the page's drawing: the one playing and its two neighbours.
+// The rest are switched off (display: none), so the browser keeps a few panels' layers and unpacked pictures in memory
+// instead of all of them (a 90-panel chapter is about 640 MB unpacked, more than a phone gives one page).
+let here = -1;
+function focus(now) {
+  let i = Math.max(0, here);
+  while (i < SCENES.length - 1 && starts[i + 1] <= now) i++;
+  while (i > 0 && starts[i] > now) i--;
+  if (i === here) return;
+  const was = here;
+  here = i;
+  for (const centre of [was, i]) for (let j = centre - 1; j <= centre + 1; j++) {
+    const s = SCENES[j];
+    if (!s) continue;
+    const away = Math.abs(j - i) > 1;
+    if (away === s.away) continue;
+    s.away = away;
+    s.el.classList.toggle("away", away);
+    if (away) particles.release(s);
+  }
+}
+
+let timeline = null, scroller = null;
 const starts = [];
 let total = 0;
 const cues = []; // sound effects, in timeline time
@@ -517,12 +575,36 @@ if (reduceMotion || !window.gsap || !window.ScrollTrigger) {
 } else {
   preload(0);
   gsap.registerPlugin(ScrollTrigger);
+  // a phone's address bar sliding in and out "resizes" the window many times in one swipe, but the stage (100svh)
+  // stays as it is: nothing is measured again unless the stage itself changed size
+  ScrollTrigger.config({ ignoreMobileResize: true });
   layout();
   buildTimeline();
+  SCENES.forEach((s) => { s.away = true; s.el.classList.add("away"); });
+  focus(0);
   makeAutoScroll();
-  window.addEventListener("resize", () => { layout(); ScrollTrigger.refresh(); });
+  let stageW = stage.clientWidth, stageH = stage.clientHeight, resized = 0;
+  window.addEventListener("resize", () => {
+    clearTimeout(resized);
+    resized = setTimeout(() => {
+      if (stage.clientWidth === stageW && stage.clientHeight === stageH) return;
+      stageW = stage.clientWidth; stageH = stage.clientHeight;
+      layout();
+      ScrollTrigger.refresh();
+    }, 150);
+  });
+  // the title card changing height (the fonts arriving, the phone box appearing) moves the story down the page
+  if (window.ResizeObserver) {
+    let first = true, moved = 0;
+    new ResizeObserver(() => {
+      if (first) { first = false; return; }
+      clearTimeout(moved);
+      moved = setTimeout(() => ScrollTrigger.refresh(), 200);
+    }).observe(document.querySelector("header.card"));
+  }
   gsap.ticker.add(() => {
     const now = timeline.time();
+    focus(now);
     particles.frame(now);
     sound.update(now);
   });
@@ -539,30 +621,38 @@ function buildTimeline() {
   SCENES.forEach((s, i) => {
     const L = s.length, p = s.parts;
     starts.push(t);
-    const at = (fraction) => t + fraction * L;
+    // Each panel's moves sit on a timeline of their own, placed on the chapter's. On every frame GSAP then steps over
+    // a panel that is finished or not yet begun in one go, instead of checking each of the chapter's ~1,500 moves.
+    const base = i ? t - 6 : 0; // where this panel's timeline begins on the chapter's: its fade-in, 6 units early
+    const sc = gsap.timeline({ defaults: { ease: "none" } });
+    const T = t - base;         // the panel's own start, on its timeline
+    const at = (fraction) => T + fraction * L;
 
     // where the camera scales around: a zoom-out exit uses its focus, otherwise `origin`
     const origin = s.origin || [50, 50];
     gsap.set(p.rig, { transformOrigin: `${origin[0]}% ${origin[1]}%` });
+    // GSAP reads an element's transform the first time it animates it, and that reading needs the element drawn:
+    // do it now for the two wrappers whose first move may come while their panel is switched off (see `focus`)
+    gsap.set([p.zoom, p.shake], { x: 0 });
     if (s.focus) gsap.set(p.zoom, { transformOrigin: `${s.focus[0]}% ${s.focus[1]}%` });
 
     // enter
-    if (s.enter === "cut" || i === 0) tl.set(s.el, { autoAlpha: 1 }, t);
-    else if (s.enter === "zoom") tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, t - 4)
-                                 .fromTo(p.zoom, { scale: 1.7 }, { scale: 1, duration: 0.16 * L, ease: "power2.out" }, t - 4);
-    else tl.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12 * L }, t - 6)
-           .fromTo(p.zoom, { scale: 0.92, yPercent: 4 }, { scale: 1, yPercent: 0, duration: 0.14 * L, ease: "power1.out" }, t - 6);
+    if (s.enter === "cut" || i === 0) sc.set(s.el, { autoAlpha: 1 }, T);
+    else if (s.enter === "zoom") sc.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, T - 4)
+                                 .fromTo(p.zoom, { scale: 1.7 }, { scale: 1, duration: 0.16 * L, ease: "power2.out" }, T - 4);
+    else sc.fromTo(s.el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12 * L }, T - 6)
+           .fromTo(p.zoom, { scale: 0.92, yPercent: 4 }, { scale: 1, yPercent: 0, duration: 0.14 * L, ease: "power1.out" }, T - 6);
 
     // camera: panel-wide moves, plus the pan down a tall panel
     const cam = s.camera || { from: {}, to: {} };
-    tl.fromTo(p.rig, toGsap(cam.from), { ...toGsap(cam.to), duration: L }, t);
-    if (s.fit === "pan") tl.fromTo(p.pan, { "--pan": 0 }, { "--pan": 1, duration: L }, t);
+    sc.fromTo(p.rig, toGsap(cam.from), { ...toGsap(cam.to), duration: L }, T);
+    if (s.fit === "pan") sc.fromTo(p.pan, { "--pan": 0 }, { "--pan": 1, duration: L }, T);
 
     // depth: background and characters move separately
     for (const layer of ["bg", "chars"]) {
       if (!s[layer]) continue;
       const span = s[layer].over || [0, 1];
-      tl.fromTo(p[layer], toGsap(s[layer].from), { ...toGsap(s[layer].to), duration: (span[1] - span[0]) * L,
+      sc.fromTo(p[layer], toGsap(s[layer].from), { ...toGsap(s[layer].to), duration: (span[1] - span[0]) * L,
         ease: s[layer].over ? "power2.out" : "none" }, at(span[0]));
     }
 
@@ -570,59 +660,61 @@ function buildTimeline() {
     (s.bubbles || []).forEach((b, k) => {
       const el = p.bubbles[k];
       if (b.pop === false) {
-        tl.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, at(b.at));
+        sc.fromTo(el, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 * L }, at(b.at));
         return;
       }
-      tl.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
+      sc.fromTo(el, { scale: 0.2, rotation: -8, autoAlpha: 0, transformOrigin: "50% 90%" },
         { scale: 1, rotation: 0, autoAlpha: 1, duration: 0.08 * L, ease: "back.out(2.2)" }, at(b.at));
       // `out` moves the fade later, for a bubble low on a tall panel the camera reaches late (0.92 or more: it stays)
       const out = b.out ?? 0.8;
-      if (out < 0.92) tl.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(out));
+      if (out < 0.92) sc.to(el, { yPercent: -12, autoAlpha: 0, duration: 0.08 * L }, at(out));
     });
-    (s.sfx || []).forEach((f) => cues.push({ time: at(f.at), sfx: f.sound }));
+    (s.sfx || []).forEach((f) => cues.push({ time: base + at(f.at), sfx: f.sound }));
 
     // impacts
     (s.shakes || []).forEach((m) => {
       const d = 0.012 * L;
-      tl.to(p.shake, { keyframes: [{ x: -14, y: 6 }, { x: 12, y: -8 }, { x: -8, y: 4 }, { x: 5, y: -2 }, { x: 0, y: 0 }],
+      sc.to(p.shake, { keyframes: [{ x: -14, y: 6 }, { x: 12, y: -8 }, { x: -8, y: 4 }, { x: 5, y: -2 }, { x: 0, y: 0 }],
         duration: 5 * d }, at(m));
     });
     (s.flashes || []).forEach((f) => {
       // a blink by default; `hold` keeps it at full strength for a while (a white-out), `rise` / `fall` set the fades
       const rise = (f.rise ?? 0.02) * L, hold = (f.hold ?? 0) * L, fall = (f.fall ?? 0.07) * L;
-      tl.set(flash, { backgroundColor: f.color }, at(f.at))
+      sc.set(flash, { backgroundColor: f.color }, at(f.at))
         .fromTo(flash, { opacity: 0 }, { opacity: f.strength ?? 0.85, duration: rise }, at(f.at))
         .to(flash, { opacity: 0, duration: fall }, at(f.at) + rise + hold);
     });
 
     // exit
-    const end = t + L;
+    const end = T + L;
     if (i === SCENES.length - 1 || s.exit === "zoom") {
       if (s.exit === "zoom") {
-        tl.to(p.zoom, { scale: 7, duration: 0.24 * L, ease: "power2.in" }, end - 0.24 * L)
+        sc.to(p.zoom, { scale: 7, duration: 0.24 * L, ease: "power2.in" }, end - 0.24 * L)
           .to(s.el, { autoAlpha: 0, duration: 0.07 * L }, end - 0.07 * L);
       } else {
-        tl.to(s.el, { autoAlpha: 0, duration: 0.12 * L }, end - 0.12 * L);
+        sc.to(s.el, { autoAlpha: 0, duration: 0.12 * L }, end - 0.12 * L);
       }
     } else {
-      tl.to(p.zoom, { yPercent: -6, scale: 1.03, duration: 0.12 * L, ease: "power1.in" }, end - 0.12 * L)
+      sc.to(p.zoom, { yPercent: -6, scale: 1.03, duration: 0.12 * L, ease: "power1.in" }, end - 0.12 * L)
         .to(s.el, { autoAlpha: 0, duration: 0.1 * L }, end - 0.1 * L);
     }
-    t = end;
+    tl.add(sc, base);
+    t += L;
   });
   tl.set({}, {}, total); // the timeline spans the whole story exactly
   timeline = tl;
   cues.sort((a, b) => a.time - b.time);
 
   let shown = -1;
-  ScrollTrigger.create({
+  const setBar = gsap.quickSetter(".progress", "scaleX");
+  scroller = ScrollTrigger.create({
     trigger: "#story",
     start: "top top",
     end: "bottom bottom",
     animation: tl,
     scrub: 0.7,
     onUpdate(self) {
-      gsap.set(".progress", { scaleX: self.progress });
+      setBar(self.progress);
       const now = self.progress * total;
       let i = starts.findLastIndex((s) => s <= now);
       if (i < 0) i = 0;
@@ -665,9 +757,14 @@ function makeAutoScroll() {
   for (let k = holds.length - 1; k > 0; k--) // moments close together share one hold, the longest
     if (holds[k][0] - holds[k - 1][0] < 8) { holds[k - 1][1] = Math.max(holds[k - 1][1], holds[k][1]); holds.splice(k, 1); }
 
-  const storyTop = () => document.getElementById("story").offsetTop;
-  const unitsAt = (py) => ((py - storyTop()) / innerHeight) * 100;
-  const end = () => document.documentElement.scrollHeight - innerHeight;
+  // The reader's place along the story as the timeline counts it: from ScrollTrigger's own start and end (in pixels).
+  // Not innerHeight / 100: on a phone that shrinks while the address bar shows (vh does not), and every pause
+  // came a little early, more so the further into the chapter.
+  const unitPx = () => (scroller.end - scroller.start) / total;
+  const unitsAt = (py) => (py - scroller.start) / unitPx();
+  let bottom = 0; // the furthest the page scrolls: measured when playing starts and when the window changes, not every frame
+  const measure = () => { bottom = document.documentElement.scrollHeight - innerHeight; };
+  addEventListener("resize", measure);
 
   function label() {
     for (const b of buttons) {
@@ -680,7 +777,8 @@ function makeAutoScroll() {
     shown.textContent = `${speed.toFixed(1)}×`;
   }
   function play() {
-    if (scrollY >= end() - 2) scrollTo(0, 0); // at the end: start over
+    measure();
+    if (scrollY >= bottom - 2) scrollTo(0, 0); // at the end: start over
     y = scrollY; setY = -1; factor = 1; holdUntil = 0; last = 0;
     const u = unitsAt(y);
     next = holds.findIndex((h) => h[0] > u + 1);
@@ -704,10 +802,10 @@ function makeAutoScroll() {
     }
     const target = clock < holdUntil ? CRAWL : 1;
     factor += (target - factor) * Math.min(1, dt / (target < factor ? 0.18 : 0.4)); // brake quickly, set off gently
-    y = Math.min(end(), y + BASE * speed * factor * dt * innerHeight / 100);
+    y = Math.min(bottom, y + BASE * speed * factor * dt * unitPx());
     scrollTo(0, y);
-    setY = scrollY;
-    if (y >= end() - 1) { pause(); return; }
+    setY = y;
+    if (y >= bottom - 1) { pause(); return; }
     requestAnimationFrame(step);
   }
 
@@ -738,6 +836,13 @@ function makeParticles() {
   front.className = "fx-front";
   stage.insertBefore(front, flash);
   const fctx = front.getContext("2d");
+  // The big soft particles in front of everything have a canvas of their own at half size: they are blurs, so they look
+  // the same, and the browser sends a ninth of the pixels to the screen on every frame. The sharp canvas above is
+  // then only touched while an impact burst is playing.
+  const soft = document.createElement("canvas");
+  soft.className = "fx-front";
+  stage.insertBefore(soft, flash);
+  const sctx = soft.getContext("2d"), SOFT = 0.5;
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   const TINTS = { paper: "241,236,228", mana: "70,190,255", ember: "255,138,42", spark: "255,226,150", wood: "150,98,56", wind: "120,255,200" };
   const CORES = { paper: "255,252,246", mana: "232,250,255", ember: "255,242,204", spark: "255,255,255", wood: "190,140,90", wind: "236,255,246" };
@@ -756,16 +861,24 @@ function makeParticles() {
   })());
   const rand = (a, b) => a + Math.random() * (b - a);
   const BASE = { dust: 46, embers: 70, speed: 22 };
-  let few = 1;
+  let few = 1, stageW = 0, stageH = 0;
+  // A device that cannot keep up gets fewer particles, then a coarser particle canvas: never fewer pictures, and the
+  // timing stays as directed. `quality` only goes down, so it settles instead of flickering. (?fx=full switches this off.)
+  const ADAPT = !/[?&]fx=full\b/.test(location.search);
+  let quality = 1, sharp = dpr, slowMs = 0, slowFrames = 0, strikes = 0;
   const frontParts = [];
 
   function resize() {
-    few = stage.clientWidth < 600 ? 0.55 : 1;
-    front.width = stage.clientWidth * dpr;
-    front.height = stage.clientHeight * dpr;
+    stageW = stage.clientWidth; stageH = stage.clientHeight;
+    few = stageW < 600 ? 0.55 : 1;
+    front.width = stageW * sharp;
+    front.height = stageH * sharp;
+    soft.width = stageW * SOFT;
+    soft.height = stageH * SOFT;
+    softInked = false;
     SCENES.forEach((s) => {
       if (!s.parts.fx) return;
-      s.fxScale = Math.min(dpr, 4096 / Math.max(s.boxW, s.boxH)); // canvases have a size limit
+      s.fxScale = Math.min(sharp, 4096 / Math.max(s.boxW, s.boxH)); // canvases have a size limit
       s.fxParts = [];
       if (s.fxDrawn) claim(s);
     });
@@ -776,6 +889,7 @@ function makeParticles() {
     s.parts.fx.height = s.boxH * s.fxScale;
   }
   function release(s) {
+    if (!s.parts.fx || !s.fxDrawn) return;
     s.parts.fx.width = s.parts.fx.height = 0;
     s.fxDrawn = false;
     s.fxParts = [];
@@ -794,58 +908,74 @@ function makeParticles() {
   // fade in at birth and out at death
   const lifeAlpha = (q) => Math.min(1, q.age / 0.4, (q.life - q.age) / 0.6);
 
-  function ambient(s, dt, opacity) {
+  function ambient(s, i, now, dt, opacity) {
     if (!s.fxDrawn) claim(s);
-    const c = s.parts.fx, g = c.getContext("2d");
+    const c = s.parts.fx, g = s.fxCtx || (s.fxCtx = c.getContext("2d"));
     const W = s.boxW, H = s.boxH, k = W / 700;
-    const target = Math.round(BASE[s.fx.ambient] * (s.fx.amount ?? 1) * few * Math.min(2.2, Math.max(0.7, H / W)));
-    while (s.fxParts.length < target) s.fxParts.push(spawn(s, W, H, k));
+    const target = Math.round(BASE[s.fx.ambient] * (s.fx.amount ?? 1) * few * quality * Math.min(2.2, Math.max(0.7, H / W)));
+    const parts = s.fxParts;
+    while (parts.length < target) parts.push(spawn(s, W, H, k));
     g.setTransform(s.fxScale, 0, 0, s.fxScale, 0, 0);
     g.clearRect(0, 0, W, H);
-    const tint = s.fx.tint || "paper";
-    g.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
-    s.fxParts = s.fxParts.filter((q) => {
+    const tint = s.fx.tint || "paper", kind = s.fx.ambient, sprite = kind === "embers" && glow(tint);
+    g.globalCompositeOperation = kind === "embers" ? "lighter" : "source-over";
+    g.fillStyle = `rgb(${TINTS[tint]})`;
+    // a tall panel pans past the screen: its particles all keep moving, but only those near the part in view are drawn
+    // (the panel sits centred, moved by (0.5 - pan) x travel; a third of a screen is left as margin for the camera)
+    let top = -Infinity, bottom = Infinity;
+    if (s.fit === "pan" && s.travel > 0) {
+      const pan = Math.min(1, Math.max(0, (now - starts[i]) / s.length));
+      top = (H - stageH) / 2 - (0.5 - pan) * s.travel - stageH * 0.35;
+      bottom = top + stageH * 1.7;
+    }
+    let kept = 0;
+    for (let n = 0; n < parts.length; n++) {
+      const q = parts[n];
       q.age += dt;
       q.x += q.vx * dt + (q.sway ? Math.sin(q.age * q.freq * 6.28) * q.sway * dt : 0);
       q.y += q.vy * dt;
-      if (q.age > q.life || q.y < -20 || q.x < -(q.len || 20)) return false;
-      if (s.fx.ambient === "embers") {
+      if (q.age > q.life || q.y < -20 || q.x < -(q.len || 20)) continue;
+      parts[kept++] = q;
+      if (q.y < top || q.y > bottom) continue;
+      if (kind === "embers") {
         const flicker = 0.75 + 0.25 * Math.sin(q.age * 23 + q.x);
         g.globalAlpha = lifeAlpha(q) * flicker * opacity;
         const r = q.size * 4;
-        g.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
-      } else if (s.fx.ambient === "speed") {
+        g.drawImage(sprite, q.x - r, q.y - r, 2 * r, 2 * r);
+      } else if (kind === "speed") {
         g.globalAlpha = q.alpha * opacity;
-        g.fillStyle = `rgb(${TINTS[tint]})`;
         g.fillRect(q.x, q.y, q.len, q.size);
       } else {
         g.globalAlpha = q.alpha * lifeAlpha(q) * opacity;
-        g.fillStyle = `rgb(${TINTS[tint]})`;
         g.beginPath();
         g.arc(q.x, q.y, q.size, 0, 6.283);
         g.fill();
       }
-      return true;
-    });
+    }
+    parts.length = kept;
     s.fxDrawn = true;
   }
 
   // a few big, soft particles in front of everything, moving faster: depth
   function foreground(s, dt, opacity) {
+    sctx.setTransform(SOFT, 0, 0, SOFT, 0, 0);
+    if (softInked) sctx.clearRect(0, 0, stageW, stageH); // wiped only if the last frame drew on it
+    softInked = false;
     if (!s || !s.fx || s.fx.ambient === "speed") { frontParts.length = 0; return; }
-    const W = stage.clientWidth, H = stage.clientHeight;
-    const target = Math.round(10 * (s.fx.amount ?? 1) * few);
+    const W = stageW, H = stageH;
+    const target = Math.round(10 * (s.fx.amount ?? 1) * few * quality);
+    softInked = true;
     while (frontParts.length < target) frontParts.push({ x: rand(0, W), y: H * rand(0.3, 1.1), vx: rand(-20, 20),
       vy: rand(-120, -40), size: rand(4, 10), life: rand(2, 5), age: 0 });
     const tint = s.fx.tint || "paper";
-    fctx.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
+    sctx.globalCompositeOperation = s.fx.ambient === "embers" ? "lighter" : "source-over";
     for (let n = frontParts.length - 1; n >= 0; n--) {
       const q = frontParts[n];
       q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt;
       if (q.age > q.life || q.y < -40) { frontParts.splice(n, 1); continue; }
-      fctx.globalAlpha = lifeAlpha(q) * opacity * (s.fx.ambient === "embers" ? 0.35 : 0.18);
+      sctx.globalAlpha = lifeAlpha(q) * opacity * (s.fx.ambient === "embers" ? 0.35 : 0.18);
       const r = q.size * 3;
-      fctx.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
+      sctx.drawImage(glow(tint), q.x - r, q.y - r, 2 * r, 2 * r);
     }
   }
 
@@ -897,11 +1027,15 @@ function makeParticles() {
   function bursts(s, i, now, opacity) {
     if (!s.fx?.bursts) return;
     const p = (now - starts[i]) / s.length;
-    const rect = s.parts.frame.getBoundingClientRect(), home = stage.getBoundingClientRect();
-    const unit = rect.width, k = unit / 700;
+    let rect = null, home, unit, k;
     for (const b of s.fx.bursts) {
       const t = (p - b.at) * s.length / 22; // 22 units of scroll = one second of burst
       if (t < 0 || t > b.span) continue;
+      if (!rect) { // where the panel is on screen right now: only measured while a burst is playing
+        rect = s.parts.rig.getBoundingClientRect(); home = stage.getBoundingClientRect();
+        unit = rect.width; k = unit / 700;
+        inked = true;
+      }
       const ox = rect.left - home.left + (b.from[0] / 100) * rect.width;
       const oy = rect.top - home.top + (b.from[1] / 100) * rect.height;
       for (const q of b.parts) {
@@ -984,30 +1118,54 @@ function makeParticles() {
     }
   }
 
-  let last = performance.now();
+  // is the story on screen at all? (the title and end cards need no particles)
+  let onScreen = true;
+  if (window.IntersectionObserver) new IntersectionObserver((e) => { onScreen = e[e.length - 1].isIntersecting; })
+    .observe(document.getElementById("story"));
+
+  let last = performance.now(), inked = true, softInked = true;
   function frame(now) {
-    const clock = performance.now(), dt = Math.min(0.05, (clock - last) / 1000);
+    const clock = performance.now(), gap = clock - last;
+    if (gap < 10) return; // a 120 Hz screen: the particles keep to 60 pictures a second, half the work
+    const dt = Math.min(0.05, gap / 1000);
     last = clock;
-    const box = document.getElementById("story").getBoundingClientRect();
-    if (box.bottom < 0 || box.top > innerHeight) return; // story off screen: nothing to draw
-    fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    fctx.clearRect(0, 0, front.width, front.height);
+    if (!onScreen) return;
+    if (ADAPT && quality > 0.35) { // two seconds under about 38 pictures a second, twice in a row: step down
+      slowMs += Math.min(gap, 100);
+      if (++slowFrames && slowMs >= 2000) {
+        strikes = slowMs / slowFrames > 26 ? strikes + 1 : 0;
+        slowMs = slowFrames = 0;
+        if (strikes === 2) {
+          strikes = 0;
+          quality = quality > 0.6 ? 0.6 : 0.35;
+          if (quality === 0.35 && sharp > 1) { sharp = 1; resize(); }
+        }
+      }
+    }
+    // the canvas over the stage is wiped only if the last frame drew on it: left alone, the browser has nothing to
+    // send to the screen for it (panels with speed lines and no impact draw nothing there)
+    fctx.setTransform(sharp, 0, 0, sharp, 0, 0);
+    if (inked) fctx.clearRect(0, 0, stageW, stageH);
+    inked = false;
     let lead = null, leadOpacity = 0;
-    SCENES.forEach((s, i) => {
-      const opacity = +gsap.getProperty(s.el, "opacity");
+    // only the panel playing and its neighbours can be showing (see `focus`); GSAP writes each one's opacity on it
+    for (let i = here - 1; i <= here + 1; i++) {
+      const s = SCENES[i];
+      if (!s) continue;
+      const set = s.el.style.opacity, opacity = set === "" ? +(i === 0) : +set;
       if (opacity < 0.02) {
-        if (s.fxDrawn) release(s);
-        return;
+        release(s);
+        continue;
       }
       if (opacity > leadOpacity) { lead = s; leadOpacity = opacity; }
-      if (s.fx) ambient(s, dt, opacity);
+      if (s.fx) ambient(s, i, now, dt, opacity);
       bursts(s, i, now, opacity);
-    });
+    }
     foreground(lead, dt, leadOpacity);
     fctx.globalAlpha = 1;
   }
 
-  return { resize, frame };
+  return { resize, frame, release };
 }
 
 /* ---------------------------------------------------------------- sound
@@ -1068,7 +1226,12 @@ function makeSound() {
         src.start(t);
       } : effects.clang;
     }));
-    await Promise.all(MUSIC.map(async (m) => {
+    // The music loads in the background, one track at a time: the one for the reader's place first, then the nearest.
+    // On mobile data the first music comes sooner than with every track downloading at once, and nothing waits for it.
+    const spans = MUSIC.map(span);
+    const far = (k) => (last < spans[k][0] ? spans[k][0] - last : last > spans[k][1] ? last - spans[k][1] : 0);
+    const order = MUSIC.map((m, k) => k).sort((a, b) => far(a) - far(b));
+    const addTrack = async (m, where) => {
       const buffer = await load(m.src);
       if (!buffer) return;
       const src = ctx.createBufferSource(), gain = ctx.createGain();
@@ -1084,8 +1247,9 @@ function makeSound() {
       src.loopEnd = (z + 1) / buffer.sampleRate;
       src.connect(gain).connect(musicBus);
       src.start(0, src.loopStart);
-      tracks.push({ gain, span: span(m), volume: m.volume ?? 0.5, level: -1 });
-    }));
+      tracks.push({ gain, span: where, volume: m.volume ?? 0.5, level: -1 });
+    };
+    (async () => { for (const k of order) await addTrack(MUSIC[k], spans[k]); })();
   }
   async function toggle() {
     on = !on;

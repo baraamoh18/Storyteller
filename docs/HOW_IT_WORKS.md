@@ -513,11 +513,14 @@ CDNs. It runs in any modern browser, on a PC or a phone.
 | `site/chapters/<id>/chapter.js` | one chapter: `registerChapter({ id, title, number, music, scenes })` |
 | `site/chapters/<id>/*.webp` | its images (not in git) |
 | `site/music/*.mp3`, `site/sfx/*.mp3` | the music loops and the recorded sword sounds |
+| `site/vendor/` | GSAP, ScrollTrigger, the QR code maker and the font files (sources and licences in `vendor/README.txt`) |
 | `site/README.md` | the developer reference for the reader |
 
-**Libraries:** GSAP 3.12.5 and its ScrollTrigger plugin (from cdnjs), the Google Fonts Bangers, Archivo Narrow and
-IBM Plex Mono, and, only on the desktop reader, `qrcode-generator@1.4.4` (from jsdelivr) for the phone QR code. That's
-why the reader needs an internet connection.
+**Libraries:** GSAP 3.12.5 and its ScrollTrigger plugin, the fonts Bangers, Archivo Narrow and IBM Plex Mono, and, only
+on the desktop reader, `qrcode-generator` 1.4.4 for the phone QR code. All of them are files in **`site/vendor/`**,
+served with the reader itself: the page asks no other server for anything, which is quicker on a phone and lets the
+desktop reader work without the internet. (A reader folder from before `vendor/` existed still works: the page then
+takes GSAP from cdnjs and the fonts from Google Fonts.)
 
 ### 8.2 The look
 
@@ -553,8 +556,8 @@ why the reader needs an internet connection.
    the scenes, and calls `start()`.
 5. `start()` makes the particles and the sound. Then either the **static mode** runs (reduced motion, or GSAP failed to
    load: all images in a plain column, lazy-loaded) or the animated mode: `preload(0)`, `layout()`,
-   `buildTimeline()`, `makeAutoScroll()`. A GSAP **ticker** then drives the particles and the sound every frame from the
-   timeline's current time.
+   `buildTimeline()`, `makeAutoScroll()`. A GSAP **ticker** then, on every frame, takes the timeline's current time and
+   runs `focus()` (which panels are drawn, see 8.14), the particles and the sound.
 
 ### 8.5 One panel on the stage (the nested layers, and why)
 
@@ -570,6 +573,9 @@ section.scene                     fades in and out (autoAlpha)
              │  └ img.chars       the see-through characters    (own parallax move: `chars`)
              └ img.bubble ×n      speech bubbles, over the frame
 ```
+
+The white line round a panel is a 2px `border` on `.frame`, which is 2px bigger than the panel on every side (an
+`outline` looked the same but was redrawn on every frame, see 8.14).
 
 Each kind of movement has its own wrapper, so moves never fight each other. GSAP resets any `translate` on an element
 whose transform it animates, so the pan has its own `.pan` wrapper driven by a CSS variable. `.zoom` is centred by hand
@@ -592,7 +598,8 @@ Over all panels: one `canvas.fx-front` (impact bursts, above the flash so sparks
 
 ### 8.7 The timeline (`buildTimeline()`)
 
-The whole chapter is **one GSAP timeline**, with time measured in **units: 1 unit = 1% of the screen height (1vh)**. A
+The whole chapter is **one GSAP timeline** holding **one small timeline per panel** (each placed where its panel's
+fade-in begins), with time measured in **units: 1 unit = 1% of the screen height (1vh)**. A
 scene with `length: 200` takes two screens of scrolling. **ScrollTrigger** ties the timeline to the scroll position of
 `#story` with `scrub: 0.7` (the picture follows the scroll with a 0.7 s smoothing). Scrolling back plays it backwards
 exactly. No `invalidateOnRefresh`: it broke the scenes.
@@ -636,6 +643,13 @@ While scrolling, `onUpdate` moves the progress bar, sets the panel counter, and 
   backwards too.
 - **Memory:** a panel's canvas has pixels only while the panel is on screen, its size is capped at 4,096 px, and the
   pixel density is capped at 1.5×.
+- **Two canvases over the stage:** a sharp one for the bursts, only touched while a burst plays, and a half-size one for
+  the big soft particles in front (they are blurs, so they look the same at a ninth of the pixels).
+- **On a tall panel** all particles keep moving, but only those near the part in view are drawn.
+- **On a 120 Hz screen** the particles keep to 60 pictures a second.
+- **A safety valve:** a device that stays under about 38 pictures a second for 4 seconds gets fewer particles (60%, then
+  35%, then a coarser particle canvas). It never goes back up, so it settles. Pictures and timing never change.
+  Adding `?fx=full` to the address switches it off.
 
 ### 8.9 Sound (`makeSound()` and `makeEffects()`)
 
@@ -651,6 +665,8 @@ While scrolling, `onUpdate` moves the progress bar, sets the panel counter, and 
   The soft clip rounds off any click that is too short for the limiter, so nothing ever distorts.
 - **Ducking:** at every effect, the music bus dips to **0.65 × 0.5** (`SERIES.mix.dip`) within about 15 ms, then
   comes back after 0.35 s (smoothing 0.25 s). Without it, the climax drums buried most hits under the limiter (measured).
+- **Music loads in the background, one track at a time:** the stretch the reader is in first, then the nearest ones.
+  On mobile data the first music comes sooner than with all tracks downloading at once, and the effects never wait.
 - **Music:** every take is decoded and plays in a loop from the start, silent, and its level follows the scroll. Each
   stretch fades in over 40 units around its start and out over 60 units around its end, so neighbouring stretches
   **crossfade**. The first one is already playing at the top, and the last has faded out by the end card. The loop
@@ -677,6 +693,9 @@ While scrolling, `onUpdate` moves the progress bar, sets the panel counter, and 
   Moments closer than 8 units share one hold, the longest. The actual hold is `0.3 + pauses × hold ÷ √speed` seconds, with
   **`SERIES.autoScroll.pauses = 0.65`** (1.0 felt too long).
 - **Smooth:** it brakes quickly (0.18 s) and sets off gently (0.4 s).
+- **Its place along the story** comes from ScrollTrigger's own `start` and `end` (in pixels), the same numbers the
+  timeline uses. It used to be worked out from `innerHeight`, which on a phone shrinks while the address bar shows
+  (a `vh` does not): every pause then came a little early, more so the further into the chapter.
 - **You always win:** a wheel, a touch, a mouse press, a scroll key or a scrollbar drag pauses it. Keys and taps on the
   controls themselves work the controls. It stops at the end card, and at the end ▶ starts over from the top.
 - Measured: the first bubble holds 1.9 s at 1×, and chapter 94 takes about 6 minutes at 1×.
@@ -699,6 +718,41 @@ While scrolling, `onUpdate` moves the progress bar, sets the panel counter, and 
 2. Add a line to `chapters` in `site/series.js`: `{ id: "094", title: "The Duel", number: 94, panels: 90 }`.
 
 The desktop reader doesn't even need step 2: its menu comes from the folder.
+
+### 8.14 Performance: what keeps it light on a phone
+
+| What | How | Why |
+|---|---|---|
+| **Three panels in the drawing** | `focus()` gives every `.scene` except the playing one and its two neighbours the class `away` (`display: none`). GSAP keeps animating their styles, so a jump lands in the right state. | Before, all 90 panels were part of the page: 566 elements asking for their own layer, and nothing to stop a phone from keeping every picture unpacked (about 640 MB for chapter 94). |
+| **Transforms read up front** | `buildTimeline()` runs `gsap.set([p.zoom, p.shake], { x: 0 })`. | GSAP reads an element's transform the first time it animates it and needs the element drawn; a switched-off panel is not. |
+| **Pictures unpacked one panel ahead** | `preload()` calls `img.decode()` on the next panel's two layers. | Unpacking a tall picture takes a phone a moment; without this it happened during the panel's own fade-in. |
+| **One timeline per panel** | Each panel's moves are on their own timeline, added to the chapter's at `base = start − 6`. | GSAP checked each of ~1,500 moves on every frame; now it steps over whole panels. |
+| **Border, not outline** | `.frame { inset: -2px; border: 2px solid }`. | Chrome redrew the outline + shadow from scratch on every frame the camera moved (about 10 tiles a frame). |
+| **No measuring in the frame loop** | No `getBoundingClientRect` / `offsetTop` / `scrollHeight` per frame; an `IntersectionObserver` says whether the story is on screen; a panel is only measured while a burst plays. | Each of those forces the browser to work out styles early: six times a frame before, once now. |
+| **The address bar is not a resize** | The resize handler waits 150 ms and does nothing unless the stage (`100svh`) changed size; `ScrollTrigger.config({ ignoreMobileResize: true })`. | On a phone the bar slides in and out during a swipe and fired a full re-layout of 90 panels plus a ScrollTrigger refresh each time. |
+| **The title card moving the story** | A `ResizeObserver` on the title card calls `ScrollTrigger.refresh()`. | Fonts arriving or the phone box appearing shift where the story starts. |
+| **One server** | `vendor/` (see 8.1); two font files are preloaded. | A phone on mobile data pays for every extra server it must find and greet; the page used to wait on four. |
+| **Kept by the browser** | The websites' `_headers` give `vendor/` a month and `music/`, `sfx/` a week. | A second visit does not ask the server about them again. Chapter folders are always asked, so a plan and its pictures never get out of step. |
+
+Measured here on a simulated phone (390 × 844, the processor slowed four times, stand-in pictures of the real sizes,
+the whole chapter at a steady 240 units a second). These are relative numbers from a computer with no graphics card,
+not a real phone's:
+
+| | Before | After |
+|---|---|---|
+| Pictures a second | 45 | 58 |
+| Frame time, 95th percentile | 33 ms | 17 ms |
+| Frames over 50 ms | 46 | 16 |
+| Main-thread work per frame | 21 ms | 12 ms |
+| of which the page's own script | 4.6 ms | 1.9 ms |
+| Redrawing tiles per frame | 5.8 ms (11 tiles) | 0.6 ms (2 tiles) |
+| Time to a built chapter | 1.5 s | 0.8 s |
+| Panels in the page's drawing | 90 | 2–3 |
+| Servers asked | 3 | 1 |
+
+The animation itself is unchanged: `tools/perf/dump.js` records every animated element's state at 4,505 places
+(forward, backward and 400 random jumps) and `compare.js` finds the old and new readers identical, apart from two
+values that differ by 0.0001 in scale.
 
 ---
 
@@ -732,7 +786,7 @@ Options: `--port 8000`, `--no-browser`.
 
 | Command | Zip in `dist/` | What's inside | Goes to |
 |---|---|---|---|
-| `build_reader.py` | `Storyteller-Reader.zip` | `Storyteller Reader/`: the .bat, README.txt, reader.py, an empty `new chapters/`, and `reader/` (index.html, series.js, music, sfx, every chapter in series.js) | your PC (unzip) |
+| `build_reader.py` | `Storyteller-Reader.zip` | `Storyteller Reader/`: the .bat, README.txt, reader.py, an empty `new chapters/`, and `reader/` (index.html, series.js, music, sfx, vendor, every chapter in series.js) | your PC (unzip) |
 | `build_reader.py --pack 094` | `reader-pack_094.zip` | `chapters/094/*` (`--with-reader` adds index.html and series.js) | PC: `new chapters` folder |
 | `build_reader.py --reader-update` | `reader-update.zip` | index.html + series.js | PC: `new chapters` folder |
 | `build_reader.py --site` | `Storyteller-Site.zip` | the reader files at the top level, the chapters, and `_headers` (`X-Robots-Tag: noindex, nofollow, noimageindex`) + `robots.txt` (`Disallow: /`), which keep it out of search engines | Cloudflare `tbate-reader` |
@@ -740,6 +794,9 @@ Options: `--port 8000`, `--no-browser`.
 
 Details:
 - For a website, `series.js` is rewritten with only the chosen chapters (each line built from its `chapter.js`).
+- Websites get **cache rules** in `_headers`: `vendor/` a month, `music/` and `sfx/` a week (see 8.14).
+- Reader updates and `--with-reader` carry `index.html` and `series.js` only, not `vendor/`: a reader unzipped before
+  `vendor/` existed refuses packs with that folder, and the page falls back to the web for it.
 - **Every folder gets its own entry in the zip.** Cloudflare's drag and drop skipped the chapter folder of a zip that only
   listed files, which caused "Chapter not ready".
 - Images and MP3s are stored without extra compression.
@@ -839,6 +896,7 @@ A chapter's `music`: `[{ theme: "tension", from: "panel_01", to: "panel_14" }, �
 | `tools/reader/record_demo.js`, `render_demo_audio.js` | the demo video and its sound | see 9.3 |
 | `tools/reader/cover.html` | the link-preview cover | see 9.3 |
 | `docs/images/banner.html` | the README banner | render with Playwright at 1280 × 400, 2× |
+| `tools/perf/*` | check the reader's speed and that a change left the animation as it was | see `tools/perf/README.md` |
 
 **What to run after changing something:**
 - `split_layers.py`, `make_chapter.py` or `gpu_check.py` changed → `python tools/build_notebooks.py`, then commit the
@@ -850,7 +908,7 @@ A chapter's `music`: `[{ theme: "tension", from: "panel_01", to: "panel_14" }, �
 
 | Part | Needs |
 |---|---|
-| The reader | a modern browser and internet (GSAP, fonts) |
+| The reader | a modern browser (GSAP and the fonts come with it) |
 | The desktop reader | Python 3.8+ (nothing else to install) |
 | The chapter maker | Python 3.10+ (3.12 on the PC kit), PyTorch, `rembg[gpu]`, ONNX Runtime (GPU or DirectML), OpenCV, SciPy, NumPy, Pillow, pymatting, `simple-lama-inpainting` 0.1.2 (`--no-deps`), an NVIDIA graphics card for speed; models about 2.3 GB |
 | The draft tool | Python 3; `node` for `--carry-over` |
@@ -878,3 +936,7 @@ A chapter's `music`: `[{ theme: "tension", from: "panel_01", to: "panel_14" }, �
 | tall panels pinned to the top | `.zoom` centred by hand |
 | music clicked at the loop point | loop points skip the MP3 encoder's silence; never `-stream_loop` in ffmpeg |
 | climax drums buried the hits | the music bus that ducks under every effect |
+| the panel border was redrawn on every frame the camera moved | a `border` on a box 2px bigger, not an `outline` (with a box-shadow) |
+| all 90 panels' layers and pictures stayed in memory | `focus()`: only the playing panel and its neighbours are drawn |
+| auto-scroll paused early on phones | its place comes from ScrollTrigger's `start` / `end`, not `innerHeight` |
+| a phone's address bar re-laid out the whole chapter mid-swipe | resize only acts when the stage changed size |

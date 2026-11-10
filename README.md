@@ -66,6 +66,7 @@ published by Tapas). See [Credits and copyright](#-credits-and-copyright).
 | ▶ **Auto-scroll** | Hands-free reading with a 0.5×–2× speed slider. It slows for each bubble (longer for more words) and lingers after big hits. A touch, wheel or key pauses it. |
 | 📱 **PC and phone** | The desktop reader serves the chapters to your browser and to any phone on the same Wi-Fi, with a QR code on screen. Nothing to install on the phone. |
 | 🌐 **Web ready** | One command builds a website zip for Cloudflare Pages: a private link for friends, or a public demo with link-preview tags. |
+| ⚡ **Light on a phone** | Only the panels near you are kept in memory, pictures are unpacked just before they are needed, and everything the reader needs comes from one server. If a device still struggles, the particles thin out by themselves. |
 | ♿ **Reduced motion** | Readers who turn on "reduce motion" get the panels as a calm, plain column. |
 
 ---
@@ -73,7 +74,7 @@ published by Tapas). See [Credits and copyright](#-credits-and-copyright).
 ## 💻 Install the desktop reader (Windows)
 
 The desktop reader is a small program that shows the chapters in your browser and shares them with your phone over Wi-Fi.
-It needs **Python** (free) and an internet connection, because the reader downloads its animation library and fonts.
+It needs **Python** (free) and nothing else: once the chapters are on your computer, it works without the internet.
 
 ### Step 1: Install Python (once)
 
@@ -334,6 +335,7 @@ site/                         the reader (details: site/README.md)
   series.js                   title, credit, chapter list, music themes, mix, auto-scroll pauses, recorded sounds
   chapters/<id>/chapter.js    one chapter's scene plan (its .webp images are not in git)
   music/  sfx/                music loops by theme, recorded sword sounds
+  vendor/                     the animation library (GSAP) and the fonts, served with the reader
 tools/
   layer-splitter/             split_layers.py: panels, bubbles, AI cutouts, AI background fill
   make-chapter/               make_chapter.py + the Colab and Kaggle notebooks, gpu_check.py
@@ -342,6 +344,7 @@ tools/
   reader/                     the desktop reader (reader.py, Read Storyteller.bat), build_reader.py, demo video tools
   music/                      Make_Music.ipynb (new music themes on Colab), make_loop.py (seamless loops)
   voices/                     make_voices.py (voices are switched off for now)
+  perf/                       speed and "nothing changed" checks for the reader, on a simulated phone
   build_notebooks.py          rebuilds the notebooks and the PC kit from the scripts
 series/cast.md                the cast: looks, magic colours, first appearances
 docs/images/                  the pictures in this README
