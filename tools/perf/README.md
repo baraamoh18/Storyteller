@@ -10,8 +10,8 @@ python3 -m http.server 8772 --directory /tmp/reader-new &
 ```
 
 To compare with an older reader, check it out somewhere (`git worktree add /tmp/old <commit>`), make a second copy with
-`--site /tmp/old/site` and serve it on another port. A reader from before `vendor/` existed asks cdnjs for GSAP: set
-`OLD_GSAP` to a folder holding `gsap.min.js` and `ScrollTrigger.min.js` (from `npm pack gsap@3.12.5`).
+`--site /tmp/old/site` and serve it on another port. A reader from before `vendor/` existed asks cdnjs for GSAP: the
+scripts answer that from `site/vendor/` (or from the folder named in `OLD_GSAP`).
 
 | Script | What it tells you |
 |---|---|

@@ -1,7 +1,7 @@
 // Functional checks of the new reader on a simulated phone.  node func.js <port>
 const { chromium } = require("playwright");
 const path = require("path");
-const OLD_GSAP = process.env.OLD_GSAP || __dirname; // a folder with gsap.min.js + ScrollTrigger.min.js, for a reader from before vendor/
+const OLD_GSAP = process.env.OLD_GSAP || path.join(__dirname, "../../site/vendor"); // a folder with gsap.min.js + ScrollTrigger.min.js, for a reader from before vendor/
 const port = process.argv[2];
 const ok = (c, m) => console.log((c ? "PASS  " : "FAIL  ") + m);
 async function open(browser, opts = {}, hash = "#094", prep) {

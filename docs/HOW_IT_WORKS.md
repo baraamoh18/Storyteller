@@ -723,7 +723,7 @@ The desktop reader doesn't even need step 2: its menu comes from the folder.
 
 | What | How | Why |
 |---|---|---|
-| **Three panels in the drawing** | `focus()` gives every `.scene` except the playing one and its two neighbours the class `away` (`display: none`). GSAP keeps animating their styles, so a jump lands in the right state. | Before, all 90 panels were part of the page: 566 elements asking for their own layer, and nothing to stop a phone from keeping every picture unpacked (about 640 MB for chapter 94). |
+| **Three panels in the drawing** | `focus()` gives every `.scene` except the playing one and its two neighbours the class `away` (`display: none`). GSAP keeps animating their styles, so a jump lands in the right state. | Before, all 90 panels were part of the page: 566 elements asking for their own layer, all looked at on every frame. Now 13. |
 | **Transforms read up front** | `buildTimeline()` runs `gsap.set([p.zoom, p.shake], { x: 0 })`. | GSAP reads an element's transform the first time it animates it and needs the element drawn; a switched-off panel is not. |
 | **Pictures unpacked one panel ahead** | `preload()` calls `img.decode()` on the next panel's two layers. | Unpacking a tall picture takes a phone a moment; without this it happened during the panel's own fade-in. |
 | **One timeline per panel** | Each panel's moves are on their own timeline, added to the chapter's at `base = start − 6`. | GSAP checked each of ~1,500 moves on every frame; now it steps over whole panels. |
@@ -749,6 +749,10 @@ not a real phone's:
 | Time to a built chapter | 1.5 s | 0.8 s |
 | Panels in the page's drawing | 90 | 2–3 |
 | Servers asked | 3 | 1 |
+
+Memory was the same before and after in this test browser (about 770 MB at its peak for the page, with stand-in
+pictures at three times the pixel density): Chrome already drops what hidden panels hold and keeps its own budget of
+unpacked pictures. Whether switching panels off saves memory in Safari on an iPhone was not measured.
 
 The animation itself is unchanged: `tools/perf/dump.js` records every animated element's state at 4,505 places
 (forward, backward and 400 random jumps) and `compare.js` finds the old and new readers identical, apart from two

@@ -539,8 +539,8 @@ function preload(i) {
 }
 
 // Only the panels at the reader's place are part of the page's drawing: the one playing and its two neighbours.
-// The rest are switched off (display: none), so the browser keeps a few panels' layers and unpacked pictures in memory
-// instead of all of them (a 90-panel chapter is about 640 MB unpacked, more than a phone gives one page).
+// The rest are switched off (display: none): the browser has a few panels' elements and layers to keep track of on every
+// frame instead of all of them, and is free to drop the unpacked pictures of the others.
 let here = -1;
 function focus(now) {
   let i = Math.max(0, here);

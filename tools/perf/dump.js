@@ -2,7 +2,7 @@
 // to compare two builds of the reader exactly.  node dump.js <port> <out.json>
 const { chromium } = require("playwright");
 const path = require("path"), fs = require("fs");
-const OLD_GSAP = process.env.OLD_GSAP || __dirname; // a folder with gsap.min.js + ScrollTrigger.min.js, for a reader from before vendor/
+const OLD_GSAP = process.env.OLD_GSAP || path.join(__dirname, "../../site/vendor"); // a folder with gsap.min.js + ScrollTrigger.min.js, for a reader from before vendor/
 const [port, out] = process.argv.slice(2);
 (async () => {
   const browser = await chromium.launch();

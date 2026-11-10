@@ -99,8 +99,9 @@ People who prefer reduced motion get the panels as a plain column instead.
 What keeps the reader light, and what to keep when changing it:
 
 - **Only three panels are part of the page's drawing**: the one playing and its two neighbours (`focus()`). Every other
-  `.scene` has the class `away` (`display: none`), so the browser holds a few panels' layers and unpacked pictures, not
-  ninety (a 90-panel chapter is about 640 MB unpacked). GSAP still animates the switched-off panels' styles, so a jump
+  `.scene` has the class `away` (`display: none`), so the browser tracks a few panels' elements and layers on every
+  frame, not ninety, and is free to drop the others' unpacked pictures. (In the test browser total memory did not
+  change: Chrome already drops what hidden panels hold. Safari on a phone was not measured.) GSAP still animates the switched-off panels' styles, so a jump
   lands in the right state. GSAP reads an element's transform the first time it animates it, and needs the element
   drawn for that: `buildTimeline()` does that reading up front (`gsap.set([p.zoom, p.shake], { x: 0 })`). Do the same
   for any new element that is first animated with `.to()`.

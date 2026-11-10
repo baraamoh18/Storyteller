@@ -2,7 +2,7 @@
 const { chromium } = require("playwright");
 const { execSync } = require("child_process");
 const path = require("path");
-const OLD_GSAP = process.env.OLD_GSAP || __dirname; // a folder with gsap.min.js + ScrollTrigger.min.js, for a reader from before vendor/
+const OLD_GSAP = process.env.OLD_GSAP || path.join(__dirname, "../../site/vendor"); // a folder with gsap.min.js + ScrollTrigger.min.js, for a reader from before vendor/
 const rss = () => { // MB held by the page's renderer and by the process that draws (GPU process), from the system's own count
   const rows = execSync("ps -eo rss,args").toString().split("\n").filter((l) => /chrom/i.test(l) && /--type=(renderer|gpu-process)/.test(l));
   const mb = (re) => rows.filter((l) => re.test(l)).reduce((a, l) => a + parseInt(l) / 1024, 0);
